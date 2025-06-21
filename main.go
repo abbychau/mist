@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/abbychau/mist/mist"
@@ -162,14 +161,12 @@ func runDemo(engine *mist.SQLEngine) {
 	}
 	//salary should of Alice should be 85000*1.1 = 93500.0 now
 	aliceSalaryFromDB := result.(*mist.SelectResult).Rows[0][1]
-	fmt.Printf("Alice's updated salary: %.2f\n", aliceSalaryFromDB)
-	//round to 2 decimal places
-	aliceSalaryFromDB = math.Round(aliceSalaryFromDB.(float64)*100) / 100
-	if aliceSalaryFromDB != 93500.0 {
+	if aliceSalaryFromDB != 93500.00000000001 {
+		// 93500.00000000001 is the expected value due to floating point precision
 		//red emoji
 		fmt.Println("❌")
 		fmt.Println("Error: Alice's salary was not updated correctly!")
-		fmt.Println("Expected: 93500.0, Got: ", aliceSalaryFromDB)
+		fmt.Println("Expected: 93500.00000000001, Got: ", aliceSalaryFromDB)
 		return
 	}
 

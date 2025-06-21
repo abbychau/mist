@@ -390,7 +390,6 @@ Mist consists of several key components:
 ## Performance Considerations
 
 - **Memory Usage**: All data is stored in memory, so consider available RAM
-- **Indexing**: Create indexes on frequently queried columns for better performance
 - **Query Optimization**: The engine performs basic optimizations like index usage
 - **Concurrency**: The engine is designed to be thread-safe
 
@@ -402,13 +401,6 @@ Mist consists of several key components:
 - **No user management**: No authentication or authorization
 - **Single-node**: No distributed or clustering support
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
 
 ## Testing
 
@@ -424,13 +416,4 @@ go test -v -run TestCreateTable ./mist
 
 ## License
 
-[Add your license information here]
-
-## Roadmap
-
-- [ ] Persistence layer (optional disk storage)
-- [ ] More SQL functions and operators
-- [ ] Query optimization improvements
-- [ ] Better error messages and debugging
-- [ ] Performance benchmarking tools
-- [ ] More comprehensive test coverage
+MIT License
