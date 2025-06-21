@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mist - In-Memory MySQL Database</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="logo">💫</span>
+                <span class="brand-text">Mist</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#installation">Installation</a>
+                <a href="#usage">Usage</a>
+                <a href="#examples">Examples</a>
+                <a href="https://github.com/abbychau/mist" class="github-link" target="_blank">
+                    <span class="github-icon">⭐</span> GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Mist
+                    <span class="gradient-text">In-Memory MySQL Database</span>
+                </h1>
+                <p class="hero-subtitle">
+                    A lightweight, thread-safe SQL database engine with MySQL-compatible syntax.
+                    Built for speed, simplicity, and seamless integration.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#installation" class="btn btn-primary">Get Started</a>
+                    <a href="https://github.com/abbychau/mist" class="btn btn-secondary" target="_blank">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+            <div class="hero-demo">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-controls">
+                            <span class="control red"></span>
+                            <span class="control yellow"></span>
+                            <span class="control green"></span>
+                        </div>
+                        <span class="terminal-title">mist-demo.go</span>
+                    </div>
+                    <div class="terminal-body">
+                        <pre><code class="language-go">engine := mist.NewSQLEngine()
+
+// Create table
+engine.Execute(`CREATE TABLE users (
+    id INT PRIMARY KEY,
+    name VARCHAR(50),
+    age INT
+)`)
+
+// Insert data
+engine.Execute("INSERT INTO users VALUES (1, 'Alice', 30)")
+
+// Query with aggregates
+result, _ := engine.Execute("SELECT COUNT(*), AVG(age) FROM users")
+mist.PrintResult(result)</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Mist?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Lightning Fast</h3>
+                    <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>MySQL Compatible</h3>
+                    <p>Built with TiDB parser for full MySQL syntax compatibility. No learning curve required.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Thread Safe</h3>
+                    <p>Concurrent operations are handled safely, making it perfect for multi-threaded applications.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>Zero Dependencies</h3>
+                    <p>Self-contained Go library with no external database server requirements.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Advanced Queries</h3>
+                    <p>Support for JOINs, subqueries, aggregates, indexes, and complex WHERE clauses.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Easy Integration</h3>
+                    <p>Simple API for embedding in Go applications or use as standalone interactive tool.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="installation">
+        <div class="container">
+            <h2 class="section-title">Quick Installation</h2>
+            <div class="installation-options">
+                <div class="install-option">
+                    <h3>As a Go Library</h3>
+                    <div class="code-block">
+                        <pre><code class="language-bash">go get github.com/abbychau/mist</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('go get github.com/abbychau/mist')">📋</button>
+                    </div>
+                </div>
+                <div class="install-option">
+                    <h3>Standalone Application</h3>
+                    <div class="code-block">
+                        <pre><code class="language-bash">git clone https://github.com/abbychau/mist
+cd mist
+go mod tidy
+go build .</code></pre>
+                        <button class="copy-btn" onclick="copyToClipboard('git clone https://github.com/abbychau/mist\ncd mist\ngo mod tidy\ngo build .')">📋</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage Section -->
+    <section id="usage" class="usage">
+        <div class="container">
+            <h2 class="section-title">Getting Started</h2>
+            <div class="usage-tabs">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="showTab('library')">Library Usage</button>
+                    <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
+                    <button class="tab-btn" onclick="showTab('advanced')">Advanced Features</button>
+                </div>
+                
+                <div id="library" class="tab-content active">
+                    <div class="code-example">
+                        <pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/abbychau/mist"
+)
+
+func main() {
+    // Create a new SQL engine
+    engine := mist.NewSQLEngine()
+
+    // Create a table
+    _, err := engine.Execute(`CREATE TABLE products (
+        id INT PRIMARY KEY,
+        name VARCHAR(100),
+        price FLOAT,
+        category VARCHAR(50)
+    )`)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Insert data
+    queries := []string{
+        "INSERT INTO products VALUES (1, 'Laptop', 999.99, 'Electronics')",
+        "INSERT INTO products VALUES (2, 'Book', 29.99, 'Education')",
+        "INSERT INTO products VALUES (3, 'Headphones', 199.99, 'Electronics')",
+    }
+    
+    for _, query := range queries {
+        _, err := engine.Execute(query)
+        if err != nil {
+            log.Fatal(err)
+        }
+    }
+
+    // Query with aggregates
+    result, err := engine.Execute(`
+        SELECT category, COUNT(*), AVG(price) 
+        FROM products 
+        WHERE price > 50 
+        GROUP BY category
+    `)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Print results
+    mist.PrintResult(result)
+}</code></pre>
+                    </div>
+                </div>
+
+                <div id="interactive" class="tab-content">
+                    <div class="code-example">
+                        <pre><code class="language-bash"># Start interactive mode
+./mist -i
+
+# Now you can run SQL commands directly:
+mist> CREATE TABLE users (id INT, name VARCHAR(50), age INT);
+Table 'users' created successfully.
+
+mist> INSERT INTO users VALUES (1, 'Alice', 30), (2, 'Bob', 25);
+2 rows inserted.
+
+mist> SELECT * FROM users WHERE age > 25;
++----+-------+-----+
+| id | name  | age |
++----+-------+-----+
+| 1  | Alice | 30  |
++----+-------+-----+
+
+mist> SELECT COUNT(*), AVG(age) FROM users;
++----------+----------+
+| COUNT(*) | AVG(age) |
++----------+----------+
+| 2        | 27.5     |
++----------+----------+</code></pre>
+                    </div>
+                </div>
+
+                <div id="advanced" class="tab-content">
+                    <div class="code-example">
+                        <pre><code class="language-sql">-- Create indexes for better performance
+CREATE INDEX idx_age ON users (age);
+CREATE INDEX idx_category ON products (category);
+
+-- Complex JOINs with aggregates
+SELECT 
+    d.name AS department,
+    COUNT(u.id) AS employee_count,
+    AVG(u.salary) AS avg_salary
+FROM departments d
+LEFT JOIN users u ON d.id = u.department_id
+GROUP BY d.name
+HAVING COUNT(u.id) > 2;
+
+-- Subqueries in FROM clause
+SELECT * FROM (
+    SELECT name, age, 
+           CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END as level
+    FROM users
+) AS categorized
+WHERE level = 'Senior';
+
+-- ALTER TABLE operations
+ALTER TABLE users ADD COLUMN email VARCHAR(100);
+ALTER TABLE users MODIFY COLUMN name VARCHAR(200);
+ALTER TABLE users DROP COLUMN temp_field;
+
+-- Advanced WHERE clauses
+SELECT * FROM products 
+WHERE price BETWEEN 100 AND 500 
+  AND category IN ('Electronics', 'Books')
+  AND name LIKE '%Pro%'
+LIMIT 10 OFFSET 5;</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section id="examples" class="examples">
+        <div class="container">
+            <h2 class="section-title">Supported Operations</h2>
+            <div class="examples-grid">
+                <div class="example-card">
+                    <h3>Data Definition</h3>
+                    <ul>
+                        <li>CREATE TABLE with constraints</li>
+                        <li>ALTER TABLE (ADD/DROP/MODIFY columns)</li>
+                        <li>CREATE/DROP INDEX</li>
+                        <li>SHOW TABLES/INDEX</li>
+                    </ul>
+                </div>
+                <div class="example-card">
+                    <h3>Data Manipulation</h3>
+                    <ul>
+                        <li>INSERT with multiple values</li>
+                        <li>UPDATE with complex SET clauses</li>
+                        <li>DELETE with WHERE conditions</li>
+                        <li>REPLACE operations</li>
+                    </ul>
+                </div>
+                <div class="example-card">
+                    <h3>Query Features</h3>
+                    <ul>
+                        <li>SELECT with JOINs (INNER/LEFT/RIGHT)</li>
+                        <li>Subqueries in FROM clause</li>
+                        <li>WHERE with complex conditions</li>
+                        <li>GROUP BY and HAVING</li>
+                    </ul>
+                </div>
+                <div class="example-card">
+                    <h3>Advanced Functions</h3>
+                    <ul>
+                        <li>Aggregates: COUNT, SUM, AVG, MIN, MAX</li>
+                        <li>LIMIT and OFFSET</li>
+                        <li>ORDER BY multiple columns</li>
+                        <li>CASE expressions</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo">💫</span>
+                    <span class="brand-text">Mist</span>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/abbychau/mist" target="_blank">GitHub</a>
+                    <a href="https://github.com/abbychau/mist/issues" target="_blank">Issues</a>
+                    <a href="https://github.com/abbychau/mist/blob/main/LICENSE" target="_blank">License</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Mist Database. Built with ❤️ in Go.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
