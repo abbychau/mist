@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
@@ -16,12 +17,10 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <span class="logo">💫</span>
+        <div class="nav-container">            <div class="nav-brand">
+                <img src="mist-icon.svg" alt="Mist" class="logo">
                 <span class="brand-text">Mist</span>
-            </div>
-            <div class="nav-links">
+            </div>                <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#installation">Installation</a>
                 <a href="#usage">Usage</a>
@@ -82,42 +81,46 @@ mist.PrintResult(result)</code></pre>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- Features Section -->
+    </section>    <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
-            <h2 class="section-title">Why Choose Mist?</h2>
+            <h2 class="section-title">Core Features</h2>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🚀</div>
-                    <h3>Lightning Fast</h3>
+                    <h3><span class="feature-icon">🚀</span> Lightning Fast</h3>
                     <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔗</div>
-                    <h3>MySQL Compatible</h3>
+                    <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
                     <p>Built with TiDB parser for full MySQL syntax compatibility. No learning curve required.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Thread Safe</h3>
+                    <h3><span class="feature-icon">🛡️</span> Thread Safe</h3>
                     <p>Concurrent operations are handled safely, making it perfect for multi-threaded applications.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📦</div>
-                    <h3>Zero Dependencies</h3>
+                    <h3><span class="feature-icon">📦</span> Zero Dependencies</h3>
                     <p>Self-contained Go library with no external database server requirements.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Advanced Queries</h3>
+                    <h3><span class="feature-icon">🔍</span> Advanced Queries</h3>
                     <p>Support for JOINs, subqueries, aggregates, indexes, and complex WHERE clauses.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Easy Integration</h3>
-                    <p>Simple API for embedding in Go applications or use as standalone interactive tool.</p>
+                    <h3><span class="feature-icon">📊</span> Query Recording</h3>
+                    <p>Built-in query recording for debugging, auditing, and performance analysis with thread-safe operations.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🎯</span> Precise Tracking</h3>
+                    <p>Record exact SQL queries as they're executed with immutable logs and zero performance overhead when disabled.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🔐</span> Secure & Isolated</h3>
+                    <p>Recording sessions prevent external modification and ensure data integrity for audit trails.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🧪</span> Testing & Debug</h3>
+                    <p>Perfect for unit testing, compliance logging, performance analysis, and migration tools.</p>
                 </div>
             </div>
         </div>
@@ -152,10 +155,10 @@ go build .</code></pre>
     <!-- Usage Section -->
     <section id="usage" class="usage">
         <div class="container">
-            <h2 class="section-title">Getting Started</h2>
-            <div class="usage-tabs">
+            <h2 class="section-title">Getting Started</h2>                <div class="usage-tabs">
                 <div class="tab-buttons">
                     <button class="tab-btn active" onclick="showTab('library')">Library Usage</button>
+                    <button class="tab-btn" onclick="showTab('recording-tab')">Query Recording</button>
                     <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
                     <button class="tab-btn" onclick="showTab('advanced')">Advanced Features</button>
                 </div>
@@ -212,6 +215,46 @@ func main() {
 
     // Print results
     mist.PrintResult(result)
+}</code></pre>
+                    </div>                </div>
+
+                <div id="recording-tab" class="tab-content">
+                    <div class="code-example">
+                        <pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "github.com/abbychau/mist"
+)
+
+func main() {
+    engine := mist.NewSQLEngine()
+    
+    // Setup initial data
+    engine.Execute("CREATE TABLE orders (id INT, customer VARCHAR(50), amount FLOAT)")
+    
+    // Start recording all queries
+    engine.StartRecording()
+    
+    // Execute business logic queries
+    engine.Execute("INSERT INTO orders VALUES (1, 'Alice', 299.99)")
+    engine.Execute("INSERT INTO orders VALUES (2, 'Bob', 149.50)")
+    engine.Execute("UPDATE orders SET amount = 249.99 WHERE id = 1")
+    engine.Execute("SELECT customer, SUM(amount) FROM orders GROUP BY customer")
+    
+    // Stop recording
+    engine.EndRecording()
+    
+    // Analyze recorded queries
+    queries := engine.GetRecordedQueries()
+    fmt.Printf("Business logic executed %d queries:\n", len(queries))
+    
+    for i, query := range queries {
+        fmt.Printf("%d. %s\n", i+1, query)
+    }
+    
+    // Use for debugging, testing, or audit logs
+    // Perfect for understanding query execution patterns
 }</code></pre>
                     </div>
                 </div>
@@ -283,47 +326,36 @@ LIMIT 10 OFFSET 5;</code></pre>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- Examples Section -->
+    </section>    <!-- Examples Section -->
     <section id="examples" class="examples">
         <div class="container">
             <h2 class="section-title">Supported Operations</h2>
             <div class="examples-grid">
                 <div class="example-card">
-                    <h3>Data Definition</h3>
+                    <h3>Schema & Structure</h3>
                     <ul>
-                        <li>CREATE TABLE with constraints</li>
-                        <li>ALTER TABLE (ADD/DROP/MODIFY columns)</li>
+                        <li>CREATE/ALTER/DROP TABLE</li>
                         <li>CREATE/DROP INDEX</li>
+                        <li>Column constraints & modifications</li>
                         <li>SHOW TABLES/INDEX</li>
                     </ul>
                 </div>
                 <div class="example-card">
-                    <h3>Data Manipulation</h3>
+                    <h3>Data Operations</h3>
                     <ul>
-                        <li>INSERT with multiple values</li>
-                        <li>UPDATE with complex SET clauses</li>
-                        <li>DELETE with WHERE conditions</li>
-                        <li>REPLACE operations</li>
+                        <li>INSERT/UPDATE/DELETE/REPLACE</li>
+                        <li>Complex WHERE conditions</li>
+                        <li>Batch operations & transactions</li>
+                        <li>Multiple value inserts</li>
                     </ul>
                 </div>
                 <div class="example-card">
-                    <h3>Query Features</h3>
+                    <h3>Advanced Queries</h3>
                     <ul>
-                        <li>SELECT with JOINs (INNER/LEFT/RIGHT)</li>
-                        <li>Subqueries in FROM clause</li>
-                        <li>WHERE with complex conditions</li>
-                        <li>GROUP BY and HAVING</li>
-                    </ul>
-                </div>
-                <div class="example-card">
-                    <h3>Advanced Functions</h3>
-                    <ul>
-                        <li>Aggregates: COUNT, SUM, AVG, MIN, MAX</li>
-                        <li>LIMIT and OFFSET</li>
-                        <li>ORDER BY multiple columns</li>
-                        <li>CASE expressions</li>
+                        <li>JOINs (INNER/LEFT/RIGHT) & subqueries</li>
+                        <li>Aggregates & GROUP BY/HAVING</li>
+                        <li>ORDER BY, LIMIT, OFFSET</li>
+                        <li>CASE expressions & functions</li>
                     </ul>
                 </div>
             </div>
@@ -332,10 +364,9 @@ LIMIT 10 OFFSET 5;</code></pre>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
+        <div class="container">            <div class="footer-content">
                 <div class="footer-brand">
-                    <span class="logo">💫</span>
+                    <img src="mist-icon.svg" alt="Mist" class="logo">
                     <span class="brand-text">Mist</span>
                 </div>
                 <div class="footer-links">

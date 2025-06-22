@@ -1,5 +1,5 @@
 :root {
-    --primary-color: #2563eb;
+    --primary-color: #3b82f6;
     --primary-dark: #1d4ed8;
     --secondary-color: #64748b;
     --accent-color: #8b5cf6;
@@ -10,8 +10,9 @@
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
     --border-color: #475569;
-    --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --gradient-alt: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+    --gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+    --gradient-alt: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+    --gradient-bright: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #22d3ee 100%);
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
 }
@@ -67,8 +68,9 @@ body {
 }
 
 .logo {
-    font-size: 2rem;
-    filter: drop-shadow(0 0 10px rgba(133, 77, 14, 0.6));
+    width: 32px;
+    height: 32px;
+    filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.4));
 }
 
 .brand-text {
@@ -165,7 +167,7 @@ body {
 }
 
 .gradient-text {
-    background: var(--gradient);
+    background: var(--gradient-bright);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -326,9 +328,9 @@ body {
 }
 
 .feature-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    display: block;
+    font-size: 1.25rem;
+    margin-right: 0.5rem;
+    display: inline;
 }
 
 .feature-card h3 {
@@ -336,6 +338,8 @@ body {
     font-weight: 600;
     margin-bottom: 1rem;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
 }
 
 .feature-card p {
@@ -561,6 +565,116 @@ body {
     padding-top: 2rem;
     border-top: 1px solid var(--border-color);
     color: var(--text-muted);
+}
+
+/* Recording Section */
+.recording {
+    padding: 6rem 0;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+    position: relative;
+}
+
+.recording .section-subtitle {
+    text-align: center;
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+
+.recording-content {
+    display: grid;
+    gap: 4rem;
+}
+
+.recording-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.recording-feature {
+    text-align: center;
+    padding: 2rem;
+    background: var(--surface);
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.recording-feature:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-color);
+}
+
+.recording-feature .feature-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.recording-feature h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.recording-feature p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.recording-example {
+    background: var(--surface);
+    border-radius: 1rem;
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.recording-example h3 {
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+}
+
+.recording-use-cases h3 {
+    margin-bottom: 2rem;
+    text-align: center;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.use-cases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.use-case {
+    background: var(--surface);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.use-case:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow);
+}
+
+.use-case h4 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.use-case p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 /* Responsive Design */
