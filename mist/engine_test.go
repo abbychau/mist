@@ -31,7 +31,7 @@ func TestCreateTable(t *testing.T) {
 	}
 
 	// Test IF NOT EXISTS
-	result, err = engine.Execute("CREATE TABLE IF NOT EXISTS users (id INT)")
+	_, err = engine.Execute("CREATE TABLE IF NOT EXISTS users (id INT)")
 	if err != nil {
 		t.Errorf("IF NOT EXISTS should not fail: %v", err)
 	}
@@ -337,9 +337,10 @@ func TestDeleteStatement(t *testing.T) {
 	}
 
 	// Verify the deletion
-	selectResult, err := engine.Execute("SELECT COUNT(*) FROM delete_test")
+	_, err = engine.Execute("SELECT COUNT(*) FROM delete_test")
 	if err != nil {
 		// COUNT is not implemented yet, so let's check differently
+		var selectResult interface{}
 		selectResult, err = engine.Execute("SELECT * FROM delete_test")
 		if err != nil {
 			t.Fatalf("Failed to verify deletion: %v", err)

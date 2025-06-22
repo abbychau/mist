@@ -3,24 +3,41 @@ package mist
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 // SQLEngine represents the main SQL execution engine
 type SQLEngine struct {
-	database *Database
+	database        *Database
+	recording       bool
+	recordedQueries []string
+	recordingMutex  sync.RWMutex
 }
 
 // NewSQLEngine creates a new SQL engine with an empty database
 func NewSQLEngine() *SQLEngine {
 	return &SQLEngine{
-		database: NewDatabase(),
+		database:        NewDatabase(),
+		recording:       false,
+		recordedQueries: make([]string, 0),
 	}
 }
 
 // Execute executes a SQL statement and returns the result
 func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
+	// Record query if recording is enabled
+	engine.recordingMutex.RLock()
+	if engine.recording {
+		engine.recordingMutex.RUnlock()
+		engine.recordingMutex.Lock()
+		engine.recordedQueries = append(engine.recordedQueries, sql)
+		engine.recordingMutex.Unlock()
+	} else {
+		engine.recordingMutex.RUnlock()
+	}
+
 	// Trim whitespace and ensure statement ends with semicolon for parsing
 	sql = strings.TrimSpace(sql)
 	if !strings.HasSuffix(sql, ";") {
@@ -185,4 +202,33 @@ func (engine *SQLEngine) ExecuteMultiple(sql string) ([]interface{}, error) {
 // GetDatabase returns the underlying database (for testing)
 func (engine *SQLEngine) GetDatabase() *Database {
 	return engine.database
+}
+
+// StartRecording starts recording all SQL queries executed by this engine
+func (engine *SQLEngine) StartRecording() {
+	engine.recordingMutex.Lock()
+	defer engine.recordingMutex.Unlock()
+
+	engine.recording = true
+	engine.recordedQueries = make([]string, 0) // Clear any previous recordings
+}
+
+// EndRecording stops recording SQL queries
+func (engine *SQLEngine) EndRecording() {
+	engine.recordingMutex.Lock()
+	defer engine.recordingMutex.Unlock()
+
+	engine.recording = false
+}
+
+// GetRecordedQueries returns all queries that were recorded between StartRecording and EndRecording
+// Returns a copy of the recorded queries to prevent external modification
+func (engine *SQLEngine) GetRecordedQueries() []string {
+	engine.recordingMutex.RLock()
+	defer engine.recordingMutex.RUnlock()
+
+	// Return a copy to prevent external modification
+	queries := make([]string, len(engine.recordedQueries))
+	copy(queries, engine.recordedQueries)
+	return queries
 }

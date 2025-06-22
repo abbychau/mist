@@ -223,21 +223,6 @@ func toFloat64(value interface{}) (float64, error) {
 	}
 }
 
-// parseUpdateSQL is a helper function to parse and execute UPDATE
-func parseUpdateSQL(db *Database, sql string) (int, error) {
-	astNode, err := parse(sql)
-	if err != nil {
-		return 0, fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.UpdateStmt)
-	if !ok {
-		return 0, fmt.Errorf("not an UPDATE statement")
-	}
-
-	return ExecuteUpdate(db, stmt)
-}
-
 // convertValueToColumnType converts a value to match the expected column type
 func convertValueToColumnType(value interface{}, colType ColumnType) (interface{}, error) {
 	if value == nil {

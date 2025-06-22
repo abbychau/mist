@@ -2,7 +2,6 @@ package mist
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
@@ -109,46 +108,4 @@ func ExecuteCreateTable(db *Database, stmt *ast.CreateTableStmt) error {
 
 	// Create the table
 	return db.CreateTable(tableName, columns)
-}
-
-// parseCreateTableSQL is a helper function to parse and execute CREATE TABLE
-func parseCreateTableSQL(db *Database, sql string) error {
-	astNode, err := parse(sql)
-	if err != nil {
-		return fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.CreateTableStmt)
-	if !ok {
-		return fmt.Errorf("not a CREATE TABLE statement")
-	}
-
-	return ExecuteCreateTable(db, stmt)
-}
-
-// Helper function to convert string values to appropriate types
-func convertValue(value string, colType ColumnType) (interface{}, error) {
-	if value == "" || strings.ToUpper(value) == "NULL" {
-		return nil, nil
-	}
-
-	switch colType {
-	case TypeInt:
-		return strconv.ParseInt(value, 10, 64)
-	case TypeFloat:
-		return strconv.ParseFloat(value, 64)
-	case TypeBool:
-		return strconv.ParseBool(value)
-	case TypeVarchar, TypeText:
-		// Remove quotes if present
-		if len(value) >= 2 && value[0] == '\'' && value[len(value)-1] == '\'' {
-			return value[1 : len(value)-1], nil
-		}
-		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
-			return value[1 : len(value)-1], nil
-		}
-		return value, nil
-	default:
-		return value, nil
-	}
 }

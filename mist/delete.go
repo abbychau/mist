@@ -69,18 +69,3 @@ func ExecuteDeleteAll(table *Table) int {
 	table.Rows = make([]Row, 0)
 	return rowCount
 }
-
-// parseDeleteSQL is a helper function to parse and execute DELETE
-func parseDeleteSQL(db *Database, sql string) (int, error) {
-	astNode, err := parse(sql)
-	if err != nil {
-		return 0, fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.DeleteStmt)
-	if !ok {
-		return 0, fmt.Errorf("not a DELETE statement")
-	}
-
-	return ExecuteDelete(db, stmt)
-}

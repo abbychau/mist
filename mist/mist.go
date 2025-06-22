@@ -149,7 +149,7 @@ func Interactive(engine *SQLEngine) {
 		}
 
 		var line string
-		fmt.Scanln(&line)
+		_, _ = fmt.Scanln(&line)
 
 		line = strings.TrimSpace(line)
 		if line == "" {

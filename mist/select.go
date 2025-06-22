@@ -231,21 +231,6 @@ func isTruthy(value interface{}) bool {
 	}
 }
 
-// parseSelectSQL is a helper function to parse and execute SELECT
-func parseSelectSQL(db *Database, sql string) (*SelectResult, error) {
-	astNode, err := parse(sql)
-	if err != nil {
-		return nil, fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.SelectStmt)
-	if !ok {
-		return nil, fmt.Errorf("not a SELECT statement")
-	}
-
-	return ExecuteSelect(db, stmt)
-}
-
 // getRowsWithOptimization gets rows from table, using indexes when possible
 func getRowsWithOptimization(db *Database, table *Table, whereExpr ast.ExprNode) ([]Row, error) {
 	// If no WHERE clause, return all rows

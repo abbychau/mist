@@ -233,15 +233,50 @@ func (im *IndexManager) GetIndexesForTable(tableName, columnName string) []*Inde
 }
 
 // UpdateIndexes updates all relevant indexes when a row is modified
-func (im *IndexManager) UpdateIndexes(tableName string, rowIndex int, oldRow, newRow *Row) {
+func (im *IndexManager) UpdateIndexes(tableName string, rowIndex int, oldRow, newRow *Row, table *Table) {
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
 	for _, index := range im.indexes {
 		if strings.EqualFold(index.TableName, tableName) {
-			// Find the column index (this requires table access, but we'll handle it)
-			// For now, we'll assume the caller provides the correct column mapping
-			// This is a simplified implementation
+			// Update the index with the new row data
+			// Find the column index in the table
+			columnIndex := -1
+			for i, col := range table.Columns {
+				if strings.EqualFold(col.Name, index.ColumnName) {
+					columnIndex = i
+					break
+				}
+			}
+
+			if columnIndex >= 0 {
+				// Remove old value
+				if oldRow != nil && columnIndex < len(oldRow.Values) {
+					oldValue := oldRow.Values[columnIndex]
+					if oldRowIndexes, exists := index.Data[oldValue]; exists {
+						// Remove this row index from the old value
+						for i, idx := range oldRowIndexes {
+							if idx == rowIndex {
+								index.Data[oldValue] = append(oldRowIndexes[:i], oldRowIndexes[i+1:]...)
+								break
+							}
+						}
+						// Remove the key if no more rows reference it
+						if len(index.Data[oldValue]) == 0 {
+							delete(index.Data, oldValue)
+						}
+					}
+				}
+
+				// Add new value
+				if columnIndex < len(newRow.Values) {
+					newValue := newRow.Values[columnIndex]
+					if _, exists := index.Data[newValue]; !exists {
+						index.Data[newValue] = []int{}
+					}
+					index.Data[newValue] = append(index.Data[newValue], rowIndex)
+				}
+			}
 		}
 	}
 }

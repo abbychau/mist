@@ -120,7 +120,7 @@ func executeDropColumn(db *Database, table *Table, spec *ast.AlterTableSpec) err
 
 	// Drop affected indexes
 	for _, indexName := range indexesToDrop {
-		db.IndexManager.DropIndex(indexName)
+		_ = db.IndexManager.DropIndex(indexName)
 	}
 
 	return nil
@@ -235,7 +235,7 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 				// Update the index column name
 				index.ColumnName = newColumnName
 				// Rebuild the index with the new column name
-				index.RebuildIndex(table)
+				_ = index.RebuildIndex(table)
 			}
 		}
 	}
@@ -261,19 +261,4 @@ func getDefaultValue(column Column) interface{} {
 	default:
 		return nil
 	}
-}
-
-// parseAlterTableSQL is a helper function to parse and execute ALTER TABLE
-func parseAlterTableSQL(db *Database, sql string) error {
-	astNode, err := parse(sql)
-	if err != nil {
-		return fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.AlterTableStmt)
-	if !ok {
-		return fmt.Errorf("not an ALTER TABLE statement")
-	}
-
-	return ExecuteAlterTable(db, stmt)
 }

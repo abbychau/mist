@@ -183,18 +183,3 @@ func evaluateValueExpr(expr ast.ValueExpr, expectedType ColumnType) (interface{}
 		return value, nil
 	}
 }
-
-// parseInsertSQL is a helper function to parse and execute INSERT
-func parseInsertSQL(db *Database, sql string) error {
-	astNode, err := parse(sql)
-	if err != nil {
-		return fmt.Errorf("parse error: %v", err)
-	}
-
-	stmt, ok := (*astNode).(*ast.InsertStmt)
-	if !ok {
-		return fmt.Errorf("not an INSERT statement")
-	}
-
-	return ExecuteInsert(db, stmt)
-}

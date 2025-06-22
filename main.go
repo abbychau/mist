@@ -19,6 +19,9 @@ func main() {
 
 	// Run demo by default
 	runDemo(engine)
+
+	// Demo the recording functionality
+	runRecordingDemo(engine)
 }
 
 func runDemo(engine *mist.SQLEngine) {
@@ -250,4 +253,63 @@ func runDemo(engine *mist.SQLEngine) {
 	fmt.Println("??SHOW TABLES and SHOW INDEX commands")
 	fmt.Println()
 	fmt.Println("Run with '-i' flag for interactive mode: go run . -i")
+}
+
+func runRecordingDemo(engine *mist.SQLEngine) {
+	fmt.Println("=== Recording Demo ===")
+	fmt.Println("Demonstrating query recording functionality...")
+	fmt.Println()
+
+	// Start recording
+	fmt.Println("Starting query recording...")
+	engine.StartRecording()
+
+	// Execute some queries while recording
+	queries := []string{
+		"CREATE TABLE test_recording (id INT, message VARCHAR(100))",
+		"INSERT INTO test_recording VALUES (1, 'First recorded query')",
+		"INSERT INTO test_recording VALUES (2, 'Second recorded query')",
+		"SELECT * FROM test_recording",
+		"UPDATE test_recording SET message = 'Updated message' WHERE id = 1",
+		"SELECT * FROM test_recording WHERE id = 1",
+	}
+
+	fmt.Println("Executing queries while recording:")
+	for _, query := range queries {
+		fmt.Printf("  %s\n", query)
+		result, err := engine.Execute(query)
+		if err != nil {
+			fmt.Printf("    Error: %v\n", err)
+		} else {
+			// Don't print full results to keep output clean
+			switch r := result.(type) {
+			case *mist.SelectResult:
+				fmt.Printf("    -> %d rows returned\n", len(r.Rows))
+			default:
+				fmt.Printf("    -> %v\n", result)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Stop recording
+	fmt.Println("Stopping query recording...")
+	engine.EndRecording()
+
+	// Get recorded queries
+	recordedQueries := engine.GetRecordedQueries()
+	fmt.Printf("Recorded %d queries:\n", len(recordedQueries))
+	for i, query := range recordedQueries {
+		fmt.Printf("  %d. %s\n", i+1, query)
+	}
+	fmt.Println()
+
+	// Execute a query after recording stopped (should not be recorded)
+	fmt.Println("Executing query after recording stopped (should not be recorded):")
+	_, _ = engine.Execute("SELECT COUNT(*) FROM test_recording")
+
+	// Check recorded queries again
+	finalRecordedQueries := engine.GetRecordedQueries()
+	fmt.Printf("Final count of recorded queries: %d (should be same as before)\n", len(finalRecordedQueries))
+	fmt.Println()
 }

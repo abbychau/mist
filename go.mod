@@ -3,8 +3,12 @@ module github.com/abbychau/mist
 go 1.23.4
 
 require (
+	github.com/pingcap/tidb v1.1.0-beta.0.20231124053542-069631e2ecfe
+	github.com/pingcap/tidb/pkg/parser v0.0.0-20231124053542-069631e2ecfe
+)
+
+require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudfoundry/gosigar v1.3.6 // indirect
@@ -36,8 +40,6 @@ require (
 	github.com/pingcap/kvproto v0.0.0-20231122054644-fb0f5c2a0a10 // indirect
 	github.com/pingcap/log v1.1.1-0.20230317032135-a0d097d16e22 // indirect
 	github.com/pingcap/sysutil v1.0.1-0.20230407040306-fb007c5aff21 // indirect
-	github.com/pingcap/tidb v1.1.0-beta.0.20231124053542-069631e2ecfe // indirect
-	github.com/pingcap/tidb/pkg/parser v0.0.0-20231124053542-069631e2ecfe // indirect
 	github.com/pingcap/tipb v0.0.0-20230919054518-dfd7d194838f // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
