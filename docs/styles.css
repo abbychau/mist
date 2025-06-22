@@ -113,22 +113,7 @@ body {
     width: 100%;
 }
 
-.github-link {
-    background: var(--surface);
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-color);
-    transition: all 0.3s ease;
-}
 
-.github-link:hover {
-    background: var(--surface-light);
-    transform: translateY(-2px);
-}
-
-.github-icon {
-    margin-right: 0.5rem;
-}
 
 /* Hero Section */
 .hero {
@@ -196,14 +181,6 @@ body {
     opacity: 0.8;
 }
 
-.hero-title-main::before {
-    content: '✨';
-    position: absolute;
-    top: -10px;
-    right: -20px;
-    font-size: 1.5rem;
-    animation: sparkle 2s ease-in-out infinite;
-}
 
 @keyframes sparkle {
     0%, 100% {
@@ -464,6 +441,17 @@ body {
     display: inline;
 }
 
+.external-icon {
+    font-size: 0.875rem;
+    margin-left: 0.25rem;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.external-icon:hover {
+    opacity: 1;
+}
+
 .feature-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
@@ -717,7 +705,6 @@ body {
 }
 
 .footer-bottom a::before {
-    content: '👨‍💻';
     margin-right: 0.5rem;
     font-size: 0.875em;
 }
