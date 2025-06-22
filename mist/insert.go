@@ -51,6 +51,18 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 		columnIndexes[i] = index
 	}
 
+	// Check if we're inserting into an auto increment column
+	autoIncrColIndex := table.GetAutoIncrementColumn()
+	hasAutoIncrInTarget := false
+	if autoIncrColIndex != -1 {
+		for _, colIndex := range columnIndexes {
+			if colIndex == autoIncrColIndex {
+				hasAutoIncrInTarget = true
+				break
+			}
+		}
+	}
+
 	// Process each row of values
 	for _, valueList := range stmt.Lists {
 		if len(valueList) != len(targetColumns) {
@@ -63,11 +75,37 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 		// Fill in the specified values
 		for i, expr := range valueList {
 			colIndex := columnIndexes[i]
-			value, err := evaluateExpression(expr, table.Columns[colIndex].Type)
-			if err != nil {
-				return fmt.Errorf("error evaluating value for column %s: %v", table.Columns[colIndex].Name, err)
+
+			// Handle auto increment column
+			if colIndex == autoIncrColIndex {
+				// Check if the value is NULL or 0 (should be auto-generated)
+				value, err := evaluateExpression(expr, table.Columns[colIndex].Type)
+				if err != nil {
+					return fmt.Errorf("error evaluating value for column %s: %v", table.Columns[colIndex].Name, err)
+				}
+
+				// If value is NULL or 0, auto-generate it
+				if value == nil || (value != nil && value.(int64) == 0) {
+					rowValues[colIndex] = table.GetNextAutoIncrementValue()
+				} else {
+					rowValues[colIndex] = value
+					// Update the auto increment counter if the inserted value is larger
+					if intVal, ok := value.(int64); ok && intVal > table.AutoIncrCounter {
+						table.AutoIncrCounter = intVal
+					}
+				}
+			} else {
+				value, err := evaluateExpression(expr, table.Columns[colIndex].Type)
+				if err != nil {
+					return fmt.Errorf("error evaluating value for column %s: %v", table.Columns[colIndex].Name, err)
+				}
+				rowValues[colIndex] = value
 			}
-			rowValues[colIndex] = value
+		}
+
+		// If auto increment column is not in target columns, auto-generate it
+		if autoIncrColIndex != -1 && !hasAutoIncrInTarget {
+			rowValues[autoIncrColIndex] = table.GetNextAutoIncrementValue()
 		}
 
 		// Add the row to the table with index updates

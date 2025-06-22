@@ -31,7 +31,9 @@
 package mist
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/pingcap/tidb/pkg/parser"
@@ -140,6 +142,7 @@ func Interactive(engine *SQLEngine) {
 	fmt.Println()
 
 	var inputBuffer strings.Builder
+	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		if inputBuffer.Len() == 0 {
@@ -148,8 +151,11 @@ func Interactive(engine *SQLEngine) {
 			fmt.Print("   -> ")
 		}
 
-		var line string
-		_, _ = fmt.Scanln(&line)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			continue
+		}
 
 		line = strings.TrimSpace(line)
 		if line == "" {

@@ -51,18 +51,20 @@ type Row struct {
 
 // Table represents a database table
 type Table struct {
-	Name    string
-	Columns []Column
-	Rows    []Row
-	mutex   sync.RWMutex
+	Name            string
+	Columns         []Column
+	Rows            []Row
+	AutoIncrCounter int64 // Counter for auto increment columns
+	mutex           sync.RWMutex
 }
 
 // NewTable creates a new table with the given name and columns
 func NewTable(name string, columns []Column) *Table {
 	return &Table{
-		Name:    name,
-		Columns: columns,
-		Rows:    make([]Row, 0),
+		Name:            name,
+		Columns:         columns,
+		Rows:            make([]Row, 0),
+		AutoIncrCounter: 0, // Initialize auto increment counter
 	}
 }
 
@@ -103,7 +105,8 @@ func (t *Table) AddRowWithIndexManager(values []interface{}, indexManager *Index
 func (t *Table) validateValue(colIndex int, value interface{}) error {
 	col := t.Columns[colIndex]
 
-	if value == nil && col.NotNull {
+	// Auto increment columns can be NULL during insert (they'll be auto-generated)
+	if value == nil && col.NotNull && !col.AutoIncr {
 		return fmt.Errorf("column %s cannot be null", col.Name)
 	}
 
@@ -159,6 +162,25 @@ func (t *Table) GetRows() []Row {
 func (t *Table) GetColumnIndex(name string) int {
 	for i, col := range t.Columns {
 		if strings.EqualFold(col.Name, name) {
+			return i
+		}
+	}
+	return -1
+}
+
+// GetNextAutoIncrementValue returns and increments the auto increment counter
+func (t *Table) GetNextAutoIncrementValue() int64 {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.AutoIncrCounter++
+	return t.AutoIncrCounter
+}
+
+// GetAutoIncrementColumn returns the index of the auto increment column, or -1 if none exists
+func (t *Table) GetAutoIncrementColumn() int {
+	for i, col := range t.Columns {
+		if col.AutoIncr {
 			return i
 		}
 	}

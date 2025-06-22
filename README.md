@@ -14,6 +14,7 @@ Mist is a lightweight, in-memory SQL database engine that supports MySQL-compati
 - **Subqueries** in FROM clause
 - **ALTER TABLE** operations (ADD/DROP/MODIFY columns)
 - **Index support** for query optimization
+- **Auto increment ID columns** for primary keys
 - **Interactive mode** for testing queries
 - **Thread-safe operations**
 - **Library support** for embedding in Go applications
@@ -84,6 +85,56 @@ func main() {
             fmt.Printf("Row %d: %v\n", i, row)
         }
     }
+}
+```
+
+#### Auto Increment Example
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/abbychau/mist"
+)
+
+func main() {
+    engine := mist.NewSQLEngine()
+
+    // Create a table with auto increment primary key
+    _, err := engine.Execute(`CREATE TABLE products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100),
+        price FLOAT
+    )`)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Insert data without specifying ID (auto increment will handle it)
+    insertQueries := []string{
+        "INSERT INTO products (name, price) VALUES ('Laptop', 999.99)",
+        "INSERT INTO products (name, price) VALUES ('Mouse', 29.99)",
+        "INSERT INTO products (name, price) VALUES ('Keyboard', 79.99)",
+    }
+
+    for _, query := range insertQueries {
+        result, err := engine.Execute(query)
+        if err != nil {
+            log.Fatal(err)
+        }
+        fmt.Printf("Inserted record with ID: %v\n", result)
+    }
+
+    // Query all products
+    result, err := engine.Execute("SELECT * FROM products ORDER BY id")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println("\nAll products:")
+    mist.PrintResult(result)
 }
 ```
 
@@ -307,6 +358,14 @@ CREATE TABLE users (
     salary FLOAT
 );
 
+-- Create table with auto increment primary key
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    price FLOAT,
+    category_id INT
+);
+
 -- Alter table
 ALTER TABLE users ADD COLUMN email VARCHAR(100);
 ALTER TABLE users DROP COLUMN email;
@@ -318,6 +377,10 @@ ALTER TABLE users MODIFY COLUMN name VARCHAR(100);
 -- Insert data
 INSERT INTO users VALUES (1, 'Alice', 30, 75000.0);
 INSERT INTO users (name, age) VALUES ('Bob', 25);
+
+-- Insert with auto increment (ID will be automatically assigned)
+INSERT INTO products (name, price, category_id) VALUES ('Laptop', 999.99, 1);
+INSERT INTO products (name, price, category_id) VALUES ('Mouse', 29.99, 2);
 
 -- Select data
 SELECT * FROM users;
@@ -374,6 +437,12 @@ SHOW INDEX FROM table_name;
 - `TEXT` - Text data
 - `FLOAT` - Floating-point numbers
 - `BOOL` - Boolean values
+
+## Column Constraints
+
+- `PRIMARY KEY` - Designates a column as the primary key
+- `AUTO_INCREMENT` - Automatically generates sequential integer values (must be used with PRIMARY KEY)
+- `NOT NULL` - Ensures column values cannot be null
 
 ## Architecture
 

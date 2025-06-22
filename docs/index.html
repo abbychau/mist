@@ -61,21 +61,20 @@
                         </div>
                         <span class="terminal-title">mist-demo.go</span>
                     </div>
-                    <div class="terminal-body">
-                        <pre><code class="language-go">engine := mist.NewSQLEngine()
+                    <div class="terminal-body">                        <pre><code class="language-go">engine := mist.NewSQLEngine()
 
-// Create table
+// Create table with auto increment
 engine.Execute(`CREATE TABLE users (
-    id INT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50),
     age INT
 )`)
 
-// Insert data
-engine.Execute("INSERT INTO users VALUES (1, 'Alice', 30)")
+// Insert data (ID auto-generated)
+engine.Execute("INSERT INTO users (name, age) VALUES ('Alice', 30)")
 
 // Query with aggregates
-result, _ := engine.Execute("SELECT COUNT(*), AVG(age) FROM users")
+result, _ := engine.Execute("SELECT * FROM users")
 mist.PrintResult(result)</code></pre>
                     </div>
                 </div>
@@ -89,10 +88,13 @@ mist.PrintResult(result)</code></pre>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🚀</span> Lightning Fast</h3>
                     <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead.</p>
-                </div>
-                <div class="feature-card">
+                </div>                <div class="feature-card">
                     <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
                     <p>Built with TiDB parser for full MySQL syntax compatibility. No learning curve required.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🔢</span> Auto Increment</h3>
+                    <p>Automatic ID generation with AUTO_INCREMENT support for seamless primary key management.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🛡️</span> Thread Safe</h3>
@@ -330,11 +332,11 @@ LIMIT 10 OFFSET 5;</code></pre>
     <section id="examples" class="examples">
         <div class="container">
             <h2 class="section-title">Supported Operations</h2>
-            <div class="examples-grid">
-                <div class="example-card">
+            <div class="examples-grid">                <div class="example-card">
                     <h3>Schema & Structure</h3>
                     <ul>
                         <li>CREATE/ALTER/DROP TABLE</li>
+                        <li>AUTO_INCREMENT primary keys</li>
                         <li>CREATE/DROP INDEX</li>
                         <li>Column constraints & modifications</li>
                         <li>SHOW TABLES/INDEX</li>

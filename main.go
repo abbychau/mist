@@ -25,6 +25,11 @@ func main() {
 }
 
 func runDemo(engine *mist.SQLEngine) {
+	// Auto increment demo first
+	fmt.Println("=== Auto Increment Demo ===")
+	runAutoIncrementDemo(engine)
+	fmt.Println()
+
 	// Example usage
 	fmt.Println("=== Mist In-Memory MySQL Database Demo ===")
 	fmt.Println("Now with ALTER TABLE, LIMIT, SUBQUERIES, AGGREGATES, and INDEXES!")
@@ -312,4 +317,71 @@ func runRecordingDemo(engine *mist.SQLEngine) {
 	finalRecordedQueries := engine.GetRecordedQueries()
 	fmt.Printf("Final count of recorded queries: %d (should be same as before)\n", len(finalRecordedQueries))
 	fmt.Println()
+}
+
+func runAutoIncrementDemo(engine *mist.SQLEngine) {
+	fmt.Println("Creating table with auto increment primary key...")
+
+	// Create table with auto increment ID
+	result, err := engine.Execute("CREATE TABLE products (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), price FLOAT)")
+	if err != nil {
+		fmt.Printf("Error creating table: %v\n", err)
+		return
+	}
+	fmt.Println(result)
+
+	fmt.Println("\nInserting products without specifying ID (auto increment)...")
+
+	// Insert products without specifying ID - should auto increment
+	insertQueries := []string{
+		"INSERT INTO products (name, price) VALUES ('Laptop', 999.99)",
+		"INSERT INTO products (name, price) VALUES ('Mouse', 29.99)",
+		"INSERT INTO products (name, price) VALUES ('Keyboard', 79.99)",
+	}
+
+	for _, query := range insertQueries {
+		fmt.Printf("Query: %s\n", query)
+		result, err := engine.Execute(query)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Println(result)
+	}
+
+	fmt.Println("\nInserting product with explicit ID...")
+
+	// Insert with explicit ID
+	result, err = engine.Execute("INSERT INTO products (id, name, price) VALUES (10, 'Monitor', 299.99)")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Println(result)
+
+	fmt.Println("\nInserting more products (should continue from ID 10)...")
+
+	// Insert more products - should continue from ID 10
+	insertQueries2 := []string{
+		"INSERT INTO products (name, price) VALUES ('Webcam', 59.99)",
+		"INSERT INTO products (name, price) VALUES ('Headphones', 149.99)",
+	}
+
+	for _, query := range insertQueries2 {
+		fmt.Printf("Query: %s\n", query)
+		result, err := engine.Execute(query)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Println(result)
+	}
+
+	fmt.Println("\nSelecting all products to show auto increment IDs:")
+	result, err = engine.Execute("SELECT * FROM products ORDER BY id")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	mist.PrintResult(result)
 }
