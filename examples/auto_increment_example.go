@@ -2,6 +2,9 @@
 // This example demonstrates how to use AUTO_INCREMENT columns in Mist
 // Run with: go run auto_increment_example.go
 
+//go:build ignore
+// +build ignore
+
 package main
 
 import (

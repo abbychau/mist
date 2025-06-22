@@ -1,3 +1,6 @@
+//go:build ignore
+// +build ignore
+
 package main
 
 import (
@@ -101,4 +104,8 @@ func recordingDemo() {
 	fmt.Println("• GetRecordedQueries() - retrieves all captured queries")
 	fmt.Println("• Thread-safe recording with mutex protection")
 	fmt.Println("• Each new recording session clears previous recordings")
+}
+
+func main() {
+	recordingDemo()
 }

@@ -4,9 +4,31 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
+
+// parseDate attempts to parse various date formats and return YYYY-MM-DD format
+func parseDate(dateStr string) (string, error) {
+	// Common date formats to try
+	formats := []string{
+		"2006-01-02",          // YYYY-MM-DD
+		"2006/01/02",          // YYYY/MM/DD
+		"01/02/2006",          // MM/DD/YYYY
+		"02/01/2006",          // DD/MM/YYYY
+		"2006-01-02 15:04:05", // YYYY-MM-DD HH:MM:SS
+		"2006/01/02 15:04:05", // YYYY/MM/DD HH:MM:SS
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t.Format("2006-01-02"), nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to parse date: %s", dateStr)
+}
 
 // ExecuteUpdate processes an UPDATE statement
 func ExecuteUpdate(db *Database, stmt *ast.UpdateStmt) (int, error) {
@@ -54,6 +76,11 @@ func ExecuteUpdate(db *Database, stmt *ast.UpdateStmt) (int, error) {
 				return 0, fmt.Errorf("error applying updates: %v", err)
 			}
 
+			// Validate foreign key constraints for the updated row
+			if err := db.ValidateForeignKeys(table, newRow.Values); err != nil {
+				return 0, fmt.Errorf("foreign key constraint violation: %v", err)
+			}
+
 			// Update the row in place (thread-safe)
 			table.mutex.Lock()
 			table.Rows[i] = newRow
@@ -71,6 +98,25 @@ func applyUpdates(table *Table, row Row, assignments []*ast.Assignment) (Row, er
 	// Create a copy of the row values
 	newValues := make([]interface{}, len(row.Values))
 	copy(newValues, row.Values)
+
+	// First, handle ON UPDATE triggers for columns with ON UPDATE CURRENT_TIMESTAMP
+	for i, col := range table.Columns {
+		if col.OnUpdate == "CURRENT_TIMESTAMP" {
+			// Check if this column is being explicitly updated in the SET clause
+			isExplicitlyUpdated := false
+			for _, assignment := range assignments {
+				if assignment.Column.Name.String() == col.Name {
+					isExplicitlyUpdated = true
+					break
+				}
+			}
+
+			// If not explicitly updated, apply the ON UPDATE trigger
+			if !isExplicitlyUpdated {
+				newValues[i] = time.Now().Format("2006-01-02 15:04:05")
+			}
+		}
+	}
 
 	// Apply each assignment
 	for _, assignment := range assignments {
@@ -313,14 +359,40 @@ func convertValueToColumnType(value interface{}, colType ColumnType) (interface{
 			return str, nil
 		}
 
-	case TypeTimestamp, TypeDate:
-		// Convert to string representation for timestamps and dates
+	case TypeTimestamp:
+		// Convert to string representation for timestamps
 		switch v := value.(type) {
 		case string:
+			// Validate timestamp format if needed
 			return v, nil
 		default:
 			return fmt.Sprintf("%v", v), nil
 		}
+
+	case TypeDate:
+		// Convert to string representation for dates
+		switch v := value.(type) {
+		case string:
+			// Validate date format (YYYY-MM-DD)
+			if len(v) == 10 && v[4] == '-' && v[7] == '-' {
+				return v, nil
+			}
+			// Try to parse and format the date
+			if parsed, err := parseDate(v); err == nil {
+				return parsed, nil
+			}
+			return v, nil
+		default:
+			str := fmt.Sprintf("%v", v)
+			if parsed, err := parseDate(str); err == nil {
+				return parsed, nil
+			}
+			return str, nil
+		}
+
+	case TypeEnum:
+		// Convert to string for ENUM
+		return fmt.Sprintf("%v", value), nil
 
 	default:
 		return value, nil

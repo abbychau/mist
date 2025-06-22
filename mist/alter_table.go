@@ -57,18 +57,21 @@ func executeAddColumn(db *Database, table *Table, spec *ast.AlterTableSpec) erro
 			return fmt.Errorf("error parsing new column %s: %v", colDef.Name.Name.String(), err)
 		}
 
-		notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
+		notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
 
 		newColumn := Column{
-			Name:      colDef.Name.Name.String(),
-			Type:      colType,
-			Length:    length,
-			Precision: precision,
-			Scale:     scale,
-			NotNull:   notNull,
-			Primary:   primary,
-			AutoIncr:  autoIncr,
-			Default:   defaultValue,
+			Name:       colDef.Name.Name.String(),
+			Type:       colType,
+			Length:     length,
+			Precision:  precision,
+			Scale:      scale,
+			NotNull:    notNull,
+			Primary:    primary,
+			Unique:     unique,
+			AutoIncr:   autoIncr,
+			Default:    defaultValue,
+			OnUpdate:   onUpdateValue,
+			EnumValues: enumValues,
 		}
 
 		// Check if column already exists
@@ -149,22 +152,25 @@ func executeModifyColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		return fmt.Errorf("error parsing modified column %s: %v", columnName, err)
 	}
 
-	notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
+	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
 
 	// Update the column definition
 	table.Columns[colIndex] = Column{
-		Name:      columnName,
-		Type:      colType,
-		Length:    length,
-		Precision: precision,
-		Scale:     scale,
-		NotNull:   notNull,
-		Primary:   primary,
-		AutoIncr:  autoIncr,
-		Default:   defaultValue,
+		Name:       columnName,
+		Type:       colType,
+		Length:     length,
+		Precision:  precision,
+		Scale:      scale,
+		NotNull:    notNull,
+		Primary:    primary,
+		Unique:     unique,
+		AutoIncr:   autoIncr,
+		Default:    defaultValue,
+		OnUpdate:   onUpdateValue,
+		EnumValues: enumValues,
 	}
 
 	// Convert existing data to new type if possible
@@ -209,22 +215,25 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		return fmt.Errorf("error parsing changed column %s: %v", newColumnName, err)
 	}
 
-	notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
+	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
 
 	// Update the column definition
 	table.Columns[colIndex] = Column{
-		Name:      newColumnName,
-		Type:      colType,
-		Length:    length,
-		Precision: precision,
-		Scale:     scale,
-		NotNull:   notNull,
-		Primary:   primary,
-		AutoIncr:  autoIncr,
-		Default:   defaultValue,
+		Name:       newColumnName,
+		Type:       colType,
+		Length:     length,
+		Precision:  precision,
+		Scale:      scale,
+		NotNull:    notNull,
+		Primary:    primary,
+		Unique:     unique,
+		AutoIncr:   autoIncr,
+		Default:    defaultValue,
+		OnUpdate:   onUpdateValue,
+		EnumValues: enumValues,
 	}
 
 	// Convert existing data to new type if possible

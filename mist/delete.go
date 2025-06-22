@@ -31,9 +31,10 @@ func ExecuteDelete(db *Database, stmt *ast.DeleteStmt) (int, error) {
 	// Get all rows from the table
 	rows := table.GetRows()
 	var remainingRows []Row
+	var rowsToDelete []Row
 	deletedCount := 0
 
-	// Process each row
+	// First pass: identify rows to delete and validate foreign key constraints
 	for _, row := range rows {
 		// Check if row matches WHERE condition
 		shouldDelete := true
@@ -46,9 +47,22 @@ func ExecuteDelete(db *Database, stmt *ast.DeleteStmt) (int, error) {
 		}
 
 		if shouldDelete {
+			// Validate foreign key constraints before deletion
+			if err := db.ValidateForeignKeyDeletion(table, row); err != nil {
+				return 0, fmt.Errorf("cannot delete row: %v", err)
+			}
+			rowsToDelete = append(rowsToDelete, row)
 			deletedCount++
 		} else {
 			remainingRows = append(remainingRows, row)
+		}
+	}
+
+	// Second pass: execute foreign key actions for rows that will be deleted
+	for _, row := range rowsToDelete {
+		// Execute foreign key actions (CASCADE, SET NULL, SET DEFAULT)
+		if err := db.ExecuteForeignKeyDeletionActions(table, row); err != nil {
+			return 0, fmt.Errorf("foreign key action failed: %v", err)
 		}
 	}
 

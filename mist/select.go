@@ -31,7 +31,7 @@ func ExecuteSelect(db *Database, stmt *ast.SelectStmt) (*SelectResult, error) {
 
 	// Check if this is an aggregate query
 	if hasAggregateFunction(stmt.Fields.Fields) {
-		return executeAggregateQuery(table, stmt.Fields.Fields, stmt.Where, stmt.Limit)
+		return executeAggregateQuery(table, stmt.Fields.Fields, stmt.Where, stmt.GroupBy, stmt.Limit)
 	}
 
 	// Get rows from the table, potentially using indexes

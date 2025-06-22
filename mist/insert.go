@@ -105,6 +105,13 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 					rowValues[i] = time.Now().Format("2006-01-02 15:04:05")
 				case TypeDate:
 					rowValues[i] = time.Now().Format("2006-01-02")
+				case TypeEnum:
+					// Use the first enum value as default if available
+					if len(col.EnumValues) > 0 {
+						rowValues[i] = col.EnumValues[0]
+					} else {
+						rowValues[i] = ""
+					}
 				default:
 					rowValues[i] = nil
 				}
@@ -145,6 +152,11 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 		// If auto increment column is not in target columns, auto-generate it
 		if autoIncrColIndex != -1 && !hasAutoIncrInTarget {
 			rowValues[autoIncrColIndex] = table.GetNextAutoIncrementValue()
+		}
+
+		// Validate foreign key constraints
+		if err := db.ValidateForeignKeys(table, rowValues); err != nil {
+			return fmt.Errorf("foreign key constraint violation: %v", err)
 		}
 
 		// Add the row to the table with index updates

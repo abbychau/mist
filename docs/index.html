@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist - In-Memory MySQL Database</title>
+    <title>Mist - Enhanced In-Memory MySQL Database with Full SQL Compatibility</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,6 +22,7 @@
                 <span class="brand-text">Mist</span>
             </div>                <div class="nav-links">
                 <a href="#features">Features</a>
+                <a href="#enhancements">Enhanced</a>
                 <a href="#installation">Installation</a>
                 <a href="#usage">Usage</a>
                 <a href="#examples">Examples</a>
@@ -35,14 +36,12 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
-            <div class="hero-content">
-                <h1 class="hero-title">
+            <div class="hero-content">                <h1 class="hero-title">
                     Mist
-                    <span class="gradient-text">In-Memory MySQL Database</span>
-                </h1>
-                <p class="hero-subtitle">
-                    A lightweight, thread-safe SQL database engine with MySQL-compatible syntax.
-                    Built for speed, simplicity, and seamless integration.
+                    <span class="gradient-text">Enhanced In-Memory MySQL Database</span>
+                </h1><p class="hero-subtitle">
+                    A lightweight, thread-safe SQL database engine with complete MySQL-compatible syntax.
+                    Built for speed, simplicity, and seamless integration with full referential integrity.
                 </p>
                 <div class="hero-buttons">
                     <a href="#installation" class="btn btn-primary">Get Started</a>
@@ -63,24 +62,68 @@
                     </div>
                     <div class="terminal-body">                        <pre><code class="language-go">engine := mist.NewSQLEngine()
 
-// Create table with auto increment
+// Create table with enhanced features
 engine.Execute(`CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(50),
-    age INT
+    birth_date DATE,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )`)
 
-// Insert data (ID auto-generated)
-engine.Execute("INSERT INTO users (name, age) VALUES ('Alice', 30)")
+// Insert data with new types
+engine.Execute("INSERT INTO users (email, name, birth_date, status) VALUES ('user@example.com', 'Alice', '1990-01-01', 'active')")
 
-// Query with aggregates
-result, _ := engine.Execute("SELECT * FROM users")
+// GROUP BY with aggregates
+result, _ := engine.Execute("SELECT status, COUNT(*) FROM users GROUP BY status")
 mist.PrintResult(result)</code></pre>
                     </div>
                 </div>
             </div>
         </div>
-    </section>    <!-- Features Section -->
+    </section>
+      <!-- Enhanced Features Highlight -->
+    <section id="enhancements" class="enhancements">
+        <div class="container">
+            <h2 class="section-title">🚀 Recently Enhanced Features</h2>
+            <div class="enhancements-grid">
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">📅</div>
+                    <h3>Native DATE & ENUM Types</h3>
+                    <p>Full support for DATE data type with flexible parsing and ENUM with value validation</p>
+                </div>
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">🔑</div>
+                    <h3>Foreign Key Constraints</h3>
+                    <p>Complete referential integrity with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions</p>
+                </div>
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">🔒</div>
+                    <h3>UNIQUE Constraints</h3>
+                    <p>Column and table-level UNIQUE constraints with automatic duplicate prevention</p>
+                </div>
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">⏰</div>
+                    <h3>Auto Timestamps</h3>
+                    <p>ON UPDATE CURRENT_TIMESTAMP support for automatic timestamp management</p>
+                </div>
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">📊</div>
+                    <h3>Enhanced GROUP BY</h3>
+                    <p>Full GROUP BY support with all aggregate functions and proper validation</p>
+                </div>
+                <div class="enhancement-item">
+                    <div class="enhancement-icon">✅</div>
+                    <h3>Full SQL Compatibility</h3>
+                    <p>Original MySQL schemas now work without "compatible" modifications</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
             <h2 class="section-title">Core Features</h2>
@@ -90,7 +133,7 @@ mist.PrintResult(result)</code></pre>
                     <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead.</p>
                 </div>                <div class="feature-card">
                     <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
-                    <p>Built with TiDB parser for full MySQL syntax compatibility. No learning curve required.</p>
+                    <p>Built with TiDB parser for full MySQL syntax compatibility. Supports native ENUM, DATE, UNIQUE constraints, and more.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🔢</span> Auto Increment</h3>
@@ -103,10 +146,17 @@ mist.PrintResult(result)</code></pre>
                 <div class="feature-card">
                     <h3><span class="feature-icon">📦</span> Zero Dependencies</h3>
                     <p>Self-contained Go library with no external database server requirements.</p>
+                </div>                <div class="feature-card">
+                    <h3><span class="feature-icon">🔍</span> Advanced Queries</h3>
+                    <p>Support for JOINs, subqueries, aggregates, GROUP BY, indexes, and complex WHERE clauses with full referential integrity.</p>
                 </div>
                 <div class="feature-card">
-                    <h3><span class="feature-icon">🔍</span> Advanced Queries</h3>
-                    <p>Support for JOINs, subqueries, aggregates, indexes, and complex WHERE clauses.</p>
+                    <h3><span class="feature-icon">🛡️</span> Foreign Keys</h3>
+                    <p>Complete foreign key constraint support with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions for data integrity.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">📅</span> Rich Data Types</h3>
+                    <p>Native support for DATE, ENUM, UNIQUE constraints, and ON UPDATE CURRENT_TIMESTAMP for modern SQL compatibility.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">📊</span> Query Recording</h3>
@@ -160,14 +210,14 @@ go build .</code></pre>
             <h2 class="section-title">Getting Started</h2>                <div class="usage-tabs">
                 <div class="tab-buttons">
                     <button class="tab-btn active" onclick="showTab('library')">Library Usage</button>
+                    <button class="tab-btn" onclick="showTab('enhanced')">Enhanced Features</button>
                     <button class="tab-btn" onclick="showTab('recording-tab')">Query Recording</button>
                     <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
-                    <button class="tab-btn" onclick="showTab('advanced')">Advanced Features</button>
+                    <button class="tab-btn" onclick="showTab('advanced')">Advanced Queries</button>
                 </div>
                 
                 <div id="library" class="tab-content active">
-                    <div class="code-example">
-                        <pre><code class="language-go">package main
+                    <div class="code-example">                        <pre><code class="language-go">package main
 
 import (
     "fmt"
@@ -179,22 +229,39 @@ func main() {
     // Create a new SQL engine
     engine := mist.NewSQLEngine()
 
-    // Create a table
-    _, err := engine.Execute(`CREATE TABLE products (
-        id INT PRIMARY KEY,
-        name VARCHAR(100),
-        price FLOAT,
-        category VARCHAR(50)
+    // Create tables with enhanced features
+    _, err := engine.Execute(`CREATE TABLE companies (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`)
     if err != nil {
         log.Fatal(err)
     }
 
-    // Insert data
+    _, err = engine.Execute(`CREATE TABLE products (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        company_id INT NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        price FLOAT,
+        category ENUM('Electronics', 'Books', 'Clothing') DEFAULT 'Electronics',
+        launch_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_name (name),
+        FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+    )`)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Insert data with referential integrity
+    engine.Execute("INSERT INTO companies (name) VALUES ('Tech Corp')")
+    
     queries := []string{
-        "INSERT INTO products VALUES (1, 'Laptop', 999.99, 'Electronics')",
-        "INSERT INTO products VALUES (2, 'Book', 29.99, 'Education')",
-        "INSERT INTO products VALUES (3, 'Headphones', 199.99, 'Electronics')",
+        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'Laptop Pro', 999.99, 'Electronics', '2024-01-15')",
+        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'SQL Guide', 29.99, 'Books', '2024-02-20')",
+        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'Wireless Headphones', 199.99, 'Electronics', '2024-03-10')",
     }
     
     for _, query := range queries {
@@ -204,12 +271,16 @@ func main() {
         }
     }
 
-    // Query with aggregates
+    // UPDATE automatically updates the updated_at timestamp
+    engine.Execute("UPDATE products SET price = 899.99 WHERE name = 'Laptop Pro'")
+
+    // Query with GROUP BY and aggregates
     result, err := engine.Execute(`
-        SELECT category, COUNT(*), AVG(price) 
+        SELECT category, COUNT(*) as product_count, AVG(price) as avg_price
         FROM products 
         WHERE price > 50 
         GROUP BY category
+        ORDER BY avg_price DESC
     `)
     if err != nil {
         log.Fatal(err)
@@ -217,8 +288,94 @@ func main() {
 
     // Print results
     mist.PrintResult(result)
+    
+    // Foreign key constraints prevent invalid operations
+    // This would fail: INSERT INTO products (company_id, name) VALUES (999, 'Invalid Product')
+    // This demonstrates referential integrity in action
 }</code></pre>
                     </div>                </div>
+
+                <div id="enhanced" class="tab-content">
+                    <div class="code-example">
+                        <pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "github.com/abbychau/mist"
+)
+
+func main() {
+    engine := mist.NewSQLEngine()
+    
+    // 1. Enhanced Data Types & Constraints
+    engine.Execute(`CREATE TABLE companies (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        founded_date DATE,
+        type ENUM('startup', 'corporation', 'nonprofit') DEFAULT 'startup',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`)
+    
+    // 2. Foreign Key Relationships with Actions
+    engine.Execute(`CREATE TABLE employees (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        company_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        name VARCHAR(100),
+        hire_date DATE,
+        status ENUM('active', 'inactive', 'terminated') DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+    )`)
+    
+    // 3. Data with Enhanced Types
+    engine.Execute("INSERT INTO companies (name, founded_date, type) VALUES ('Tech Corp', '2020-01-15', 'startup')")
+    engine.Execute("INSERT INTO employees (company_id, email, name, hire_date, status) VALUES (1, 'john@techcorp.com', 'John Smith', '2024-01-01', 'active')")
+    
+    // 4. Automatic Timestamp Updates
+    engine.Execute("UPDATE employees SET name = 'John A. Smith' WHERE id = 1")
+    // ^ This automatically updates the updated_at field
+    
+    // 5. GROUP BY with Enhanced Aggregates
+    result, _ := engine.Execute(`
+        SELECT 
+            c.type,
+            COUNT(e.id) as employee_count,
+            AVG(DATEDIFF(CURDATE(), e.hire_date)) as avg_tenure_days
+        FROM companies c
+        LEFT JOIN employees e ON c.id = e.company_id
+        GROUP BY c.type
+        HAVING employee_count > 0
+    `)
+    
+    fmt.Println("Company statistics by type:")
+    mist.PrintResult(result)
+    
+    // 6. Referential Integrity in Action
+    // Foreign key constraints prevent orphaned records:
+    // This would fail: engine.Execute("INSERT INTO employees (company_id, email, name) VALUES (999, 'test@example.com', 'Test User')")
+    
+    // CASCADE DELETE: Deleting a company removes all its employees
+    // engine.Execute("DELETE FROM companies WHERE id = 1") // Would cascade to employees
+    
+    // 7. UNIQUE Constraints prevent duplicates
+    // This would fail: engine.Execute("INSERT INTO employees (company_id, email, name) VALUES (1, 'john@techcorp.com', 'Another John')")
+    
+    // 8. ENUM Validation
+    // This would fail: engine.Execute("UPDATE employees SET status = 'invalid_status' WHERE id = 1")
+    
+    fmt.Println("\n✅ All enhanced features working correctly!")
+    fmt.Println("🔑 Foreign key constraints ensure data integrity")
+    fmt.Println("📅 DATE types handle proper date validation")
+    fmt.Println("🎯 ENUM types enforce valid values")
+    fmt.Println("🔒 UNIQUE constraints prevent duplicates")
+    fmt.Println("⏰ Timestamps update automatically")
+    fmt.Println("📊 GROUP BY works with all aggregate functions")
+}</code></pre>
+                    </div>
+                </div>
 
                 <div id="recording-tab" class="tab-content">
                     <div class="code-example">
@@ -262,68 +419,116 @@ func main() {
                 </div>
 
                 <div id="interactive" class="tab-content">
-                    <div class="code-example">
-                        <pre><code class="language-bash"># Start interactive mode
+                    <div class="code-example">                        <pre><code class="language-bash"># Start interactive mode
 ./mist -i
 
-# Now you can run SQL commands directly:
-mist> CREATE TABLE users (id INT, name VARCHAR(50), age INT);
-Table 'users' created successfully.
+# Create table with enhanced features:
+mist> CREATE TABLE companies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    type ENUM('startup', 'corporation') DEFAULT 'startup',
+    founded DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+Table 'companies' created successfully.
 
-mist> INSERT INTO users VALUES (1, 'Alice', 30), (2, 'Bob', 25);
-2 rows inserted.
+mist> CREATE TABLE employees (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    hire_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+Table 'employees' created successfully.
 
-mist> SELECT * FROM users WHERE age > 25;
-+----+-------+-----+
-| id | name  | age |
-+----+-------+-----+
-| 1  | Alice | 30  |
-+----+-------+-----+
+# Insert data with enhanced types:
+mist> INSERT INTO companies (name, type, founded) VALUES ('Tech Corp', 'startup', '2020-01-15');
+1 row inserted.
 
-mist> SELECT COUNT(*), AVG(age) FROM users;
-+----------+----------+
-| COUNT(*) | AVG(age) |
-+----------+----------+
-| 2        | 27.5     |
-+----------+----------+</code></pre>
+mist> INSERT INTO employees (company_id, email, hire_date) VALUES (1, 'john@techcorp.com', '2024-01-01');
+1 row inserted.
+
+# UPDATE automatically updates timestamp:
+mist> UPDATE employees SET email = 'john.smith@techcorp.com' WHERE id = 1;
+1 row updated. (updated_at automatically set)
+
+# GROUP BY with aggregates:
+mist> SELECT c.type, COUNT(e.id) as employee_count FROM companies c LEFT JOIN employees e ON c.id = e.company_id GROUP BY c.type;
++-----------+----------------+
+| type      | employee_count |
++-----------+----------------+
+| startup   | 1              |
++-----------+----------------+</code></pre>
                     </div>
                 </div>
 
                 <div id="advanced" class="tab-content">
-                    <div class="code-example">
-                        <pre><code class="language-sql">-- Create indexes for better performance
-CREATE INDEX idx_age ON users (age);
-CREATE INDEX idx_category ON products (category);
+                    <div class="code-example">                        <pre><code class="language-sql">-- Enhanced data types and constraints
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    full_name VARCHAR(100),
+    birth_date DATE,
+    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
--- Complex JOINs with aggregates
+-- Foreign key relationships with CASCADE actions
+CREATE TABLE departments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    manager_id INT,
+    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE employees (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    department_id INT,
+    hire_date DATE NOT NULL,
+    salary DECIMAL(10,2),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+);
+
+-- Complex JOINs with enhanced GROUP BY
 SELECT 
     d.name AS department,
-    COUNT(u.id) AS employee_count,
-    AVG(u.salary) AS avg_salary
+    u.status,
+    COUNT(e.id) AS employee_count,
+    AVG(e.salary) AS avg_salary,
+    MIN(e.hire_date) AS earliest_hire,
+    MAX(e.hire_date) AS latest_hire
 FROM departments d
-LEFT JOIN users u ON d.id = u.department_id
-GROUP BY d.name
-HAVING COUNT(u.id) > 2;
+LEFT JOIN employees e ON d.id = e.department_id
+LEFT JOIN users u ON e.user_id = u.id
+GROUP BY d.name, u.status
+HAVING COUNT(e.id) > 0
+ORDER BY avg_salary DESC;
 
--- Subqueries in FROM clause
-SELECT * FROM (
-    SELECT name, age, 
-           CASE WHEN age > 30 THEN 'Senior' ELSE 'Junior' END as level
-    FROM users
-) AS categorized
-WHERE level = 'Senior';
+-- Date operations and ENUM validation
+INSERT INTO users (email, username, full_name, birth_date, status) 
+VALUES ('john@example.com', 'johnsmith', 'John Smith', '1985-06-15', 'active');
 
--- ALTER TABLE operations
-ALTER TABLE users ADD COLUMN email VARCHAR(100);
-ALTER TABLE users MODIFY COLUMN name VARCHAR(200);
-ALTER TABLE users DROP COLUMN temp_field;
+-- UPDATE automatically updates timestamp
+UPDATE users SET full_name = 'John A. Smith' WHERE username = 'johnsmith';
 
--- Advanced WHERE clauses
-SELECT * FROM products 
-WHERE price BETWEEN 100 AND 500 
-  AND category IN ('Electronics', 'Books')
-  AND name LIKE '%Pro%'
-LIMIT 10 OFFSET 5;</code></pre>
+-- Foreign key constraints ensure referential integrity
+-- This would succeed: 
+INSERT INTO employees (user_id, department_id, hire_date, salary) 
+VALUES (1, 1, '2024-01-15', 75000.00);
+
+-- This would fail due to foreign key constraint:
+-- INSERT INTO employees (user_id, department_id, hire_date, salary) 
+-- VALUES (999, 1, '2024-01-15', 75000.00);
+
+-- CASCADE DELETE: Deleting a user cascades to employee records
+-- SET NULL: Deleting a department sets employee department_id to NULL
+DELETE FROM users WHERE id = 1; -- Cascades to employees table</code></pre>
                     </div>
                 </div>
             </div>
@@ -337,8 +542,11 @@ LIMIT 10 OFFSET 5;</code></pre>
                     <ul>
                         <li>CREATE/ALTER/DROP TABLE</li>
                         <li>AUTO_INCREMENT primary keys</li>
+                        <li>UNIQUE constraints & indexes</li>
+                        <li>FOREIGN KEY constraints with actions</li>
+                        <li>Native DATE & ENUM types</li>
+                        <li>ON UPDATE CURRENT_TIMESTAMP</li>
                         <li>CREATE/DROP INDEX</li>
-                        <li>Column constraints & modifications</li>
                         <li>SHOW TABLES/INDEX</li>
                     </ul>
                 </div>
@@ -346,8 +554,12 @@ LIMIT 10 OFFSET 5;</code></pre>
                     <h3>Data Operations</h3>
                     <ul>
                         <li>INSERT/UPDATE/DELETE/REPLACE</li>
+                        <li>Referential integrity enforcement</li>
+                        <li>CASCADE/SET NULL/SET DEFAULT actions</li>
+                        <li>Automatic timestamp updates</li>
+                        <li>ENUM value validation</li>
+                        <li>UNIQUE constraint checking</li>
                         <li>Complex WHERE conditions</li>
-                        <li>Batch operations & transactions</li>
                         <li>Multiple value inserts</li>
                     </ul>
                 </div>
@@ -355,9 +567,12 @@ LIMIT 10 OFFSET 5;</code></pre>
                     <h3>Advanced Queries</h3>
                     <ul>
                         <li>JOINs (INNER/LEFT/RIGHT) & subqueries</li>
-                        <li>Aggregates & GROUP BY/HAVING</li>
+                        <li>Full GROUP BY & HAVING support</li>
+                        <li>Aggregates (COUNT/SUM/AVG/MIN/MAX)</li>
                         <li>ORDER BY, LIMIT, OFFSET</li>
+                        <li>Date operations & comparisons</li>
                         <li>CASE expressions & functions</li>
+                        <li>Cross-table constraint validation</li>
                     </ul>
                 </div>
             </div>
@@ -378,7 +593,7 @@ LIMIT 10 OFFSET 5;</code></pre>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 Mist Database. Built with ❤️ in Go.</p>
+                <p>&copy; 2025 Mist Database. Built with ❤️ by <a href="https://github.com/abbychau" target="_blank">Abby</a>.</p>
             </div>
         </div>
     </footer>

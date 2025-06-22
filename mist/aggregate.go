@@ -128,7 +128,7 @@ func hasAggregateFunction(fields []*ast.SelectField) bool {
 }
 
 // executeAggregateQuery processes a SELECT query with aggregate functions
-func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr ast.ExprNode, limit *ast.Limit) (*SelectResult, error) {
+func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr ast.ExprNode, groupBy *ast.GroupByClause, limit *ast.Limit) (*SelectResult, error) {
 	// Get all rows and apply WHERE filter
 	rows := table.GetRows()
 	var filteredRows []Row
@@ -147,7 +147,13 @@ func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr as
 		filteredRows = rows
 	}
 
-	// Detect aggregate functions
+	// Check if we have GROUP BY
+	if groupBy != nil && len(groupBy.Items) > 0 {
+		return executeGroupByQuery(table, fields, filteredRows, groupBy, limit)
+	}
+
+	// No GROUP BY - process as simple aggregate query
+	// All fields must be aggregates
 	var aggregates []AggregateFunction
 	var columnNames []string
 
@@ -374,4 +380,132 @@ func applyLimitToRows(rows [][]interface{}, limit *ast.Limit) [][]interface{} {
 	}
 
 	return rows[start:end]
+}
+
+// executeGroupByQuery processes a SELECT query with GROUP BY clause
+func executeGroupByQuery(table *Table, fields []*ast.SelectField, rows []Row, groupBy *ast.GroupByClause, limit *ast.Limit) (*SelectResult, error) {
+	// Extract GROUP BY columns
+	var groupByColumns []string
+	var groupByIndexes []int
+
+	for _, item := range groupBy.Items {
+		if colExpr, ok := item.Expr.(*ast.ColumnNameExpr); ok {
+			colName := colExpr.Name.Name.String()
+			colIndex := table.GetColumnIndex(colName)
+			if colIndex == -1 {
+				return nil, fmt.Errorf("GROUP BY column %s does not exist", colName)
+			}
+			groupByColumns = append(groupByColumns, colName)
+			groupByIndexes = append(groupByIndexes, colIndex)
+		} else {
+			return nil, fmt.Errorf("complex GROUP BY expressions not supported yet")
+		}
+	}
+
+	// Group rows by the GROUP BY columns
+	groups := make(map[string][]Row)
+
+	for _, row := range rows {
+		// Create group key from GROUP BY column values
+		var keyParts []string
+		for _, colIndex := range groupByIndexes {
+			value := row.Values[colIndex]
+			keyParts = append(keyParts, fmt.Sprintf("%v", value))
+		}
+		key := strings.Join(keyParts, "|")
+		groups[key] = append(groups[key], row)
+	}
+
+	// Process SELECT fields to identify group columns and aggregates
+	var resultColumns []string
+	var groupColumnIndexes []int
+	var aggregates []AggregateFunction
+	var isAggregate []bool
+
+	for _, field := range fields {
+		if aggFunc, err := detectAggregateFunction(field); err != nil {
+			return nil, err
+		} else if aggFunc != nil {
+			// This is an aggregate function
+			aggregates = append(aggregates, *aggFunc)
+			isAggregate = append(isAggregate, true)
+
+			// Create column name for aggregate
+			if aggFunc.IsStar {
+				resultColumns = append(resultColumns, fmt.Sprintf("%s(*)", aggFunc.Type.String()))
+			} else {
+				resultColumns = append(resultColumns, fmt.Sprintf("%s(%s)", aggFunc.Type.String(), aggFunc.Column))
+			}
+		} else {
+			// This is a regular column - must be in GROUP BY
+			if colExpr, ok := field.Expr.(*ast.ColumnNameExpr); ok {
+				colName := colExpr.Name.Name.String()
+				colIndex := table.GetColumnIndex(colName)
+				if colIndex == -1 {
+					return nil, fmt.Errorf("column %s does not exist", colName)
+				}
+
+				// Check if this column is in GROUP BY
+				found := false
+				for _, groupCol := range groupByColumns {
+					if groupCol == colName {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					return nil, fmt.Errorf("column %s must appear in GROUP BY clause", colName)
+				}
+
+				groupColumnIndexes = append(groupColumnIndexes, colIndex)
+				isAggregate = append(isAggregate, false)
+				resultColumns = append(resultColumns, colName)
+			} else {
+				return nil, fmt.Errorf("complex expressions in SELECT not supported yet")
+			}
+		}
+	}
+
+	// Build result rows
+	var resultRows [][]interface{}
+
+	for _, groupRows := range groups {
+		if len(groupRows) == 0 {
+			continue
+		}
+
+		resultRow := make([]interface{}, len(resultColumns))
+		aggIndex := 0
+		groupIndex := 0
+
+		for i, isAgg := range isAggregate {
+			if isAgg {
+				// Compute aggregate for this group
+				aggValues, err := computeAggregates(table, []AggregateFunction{aggregates[aggIndex]}, groupRows)
+				if err != nil {
+					return nil, err
+				}
+				resultRow[i] = aggValues[0]
+				aggIndex++
+			} else {
+				// Use group column value (all rows in group have same value)
+				colIndex := groupColumnIndexes[groupIndex]
+				resultRow[i] = groupRows[0].Values[colIndex]
+				groupIndex++
+			}
+		}
+
+		resultRows = append(resultRows, resultRow)
+	}
+
+	// Apply LIMIT clause if present
+	if limit != nil {
+		resultRows = applyLimitToRows(resultRows, limit)
+	}
+
+	return &SelectResult{
+		Columns: resultColumns,
+		Rows:    resultRows,
+	}, nil
 }
