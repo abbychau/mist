@@ -3,6 +3,7 @@ package mist
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
@@ -283,6 +284,42 @@ func convertValueToColumnType(value interface{}, colType ColumnType) (interface{
 			return strconv.ParseBool(v)
 		default:
 			return false, nil
+		}
+
+	case TypeDecimal:
+		// Convert to string representation for DECIMAL
+		switch v := value.(type) {
+		case string:
+			return v, nil
+		case float64:
+			return fmt.Sprintf("%.10f", v), nil
+		case float32:
+			return fmt.Sprintf("%.10f", v), nil
+		case int64:
+			return fmt.Sprintf("%d", v), nil
+		case int:
+			return fmt.Sprintf("%d", v), nil
+		default:
+			// Handle MyDecimal and other types by converting to string
+			str := fmt.Sprintf("%v", v)
+			// Clean up the string if it contains type information
+			if strings.Contains(str, "KindMysqlDecimal") {
+				// Extract just the numeric part
+				parts := strings.Fields(str)
+				if len(parts) > 1 {
+					return parts[1], nil
+				}
+			}
+			return str, nil
+		}
+
+	case TypeTimestamp, TypeDate:
+		// Convert to string representation for timestamps and dates
+		switch v := value.(type) {
+		case string:
+			return v, nil
+		default:
+			return fmt.Sprintf("%v", v), nil
 		}
 
 	default:

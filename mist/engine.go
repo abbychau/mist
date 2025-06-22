@@ -1,7 +1,10 @@
 package mist
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"sync"
 
@@ -131,6 +134,20 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 	case *ast.ShowStmt:
 		return engine.executeShow(stmt)
 
+	case *ast.CreateIndexStmt:
+		err := ExecuteCreateIndex(engine.database, stmt)
+		if err != nil {
+			return nil, err
+		}
+		return "Index created successfully", nil
+
+	case *ast.DropIndexStmt:
+		err := ExecuteDropIndex(engine.database, stmt)
+		if err != nil {
+			return nil, err
+		}
+		return "Index dropped successfully", nil
+
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", stmt)
 	}
@@ -231,4 +248,103 @@ func (engine *SQLEngine) GetRecordedQueries() []string {
 	queries := make([]string, len(engine.recordedQueries))
 	copy(queries, engine.recordedQueries)
 	return queries
+}
+
+// ImportSQLFile reads a .sql file and executes all SQL statements in it
+// The file should contain SQL statements separated by semicolons
+// Returns a slice of results for each executed statement and any error encountered
+func (engine *SQLEngine) ImportSQLFile(filename string) ([]interface{}, error) {
+	// Open the file
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open SQL file %s: %v", filename, err)
+	}
+	defer file.Close()
+
+	// Read the entire file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SQL file %s: %v", filename, err)
+	}
+
+	// Execute the SQL content using ExecuteMultiple
+	return engine.ExecuteMultiple(string(content))
+}
+
+// ImportSQLFileFromReader reads SQL statements from an io.Reader and executes them
+// This is useful for reading from strings, network connections, or other sources
+// Returns a slice of results for each executed statement and any error encountered
+func (engine *SQLEngine) ImportSQLFileFromReader(reader io.Reader) ([]interface{}, error) {
+	// Read the entire content
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SQL content: %v", err)
+	}
+
+	// Execute the SQL content using ExecuteMultiple
+	return engine.ExecuteMultiple(string(content))
+}
+
+// ImportSQLFileWithProgress reads a .sql file and executes all SQL statements with progress reporting
+// The progressCallback function is called after each statement with the statement number and total count
+// Returns a slice of results for each executed statement and any error encountered
+func (engine *SQLEngine) ImportSQLFileWithProgress(filename string, progressCallback func(current, total int, statement string)) ([]interface{}, error) {
+	// Open the file
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open SQL file %s: %v", filename, err)
+	}
+	defer file.Close()
+
+	// Read and parse statements line by line to provide better progress reporting
+	var sqlContent strings.Builder
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" && !strings.HasPrefix(line, "--") && !strings.HasPrefix(line, "#") {
+			sqlContent.WriteString(line)
+			sqlContent.WriteString("\n")
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read SQL file %s: %v", filename, err)
+	}
+
+	// Split into statements and execute with progress
+	return engine.executeWithProgress(sqlContent.String(), progressCallback)
+}
+
+// executeWithProgress executes SQL statements with progress reporting
+func (engine *SQLEngine) executeWithProgress(sql string, progressCallback func(current, total int, statement string)) ([]interface{}, error) {
+	// Split by semicolon to get individual statements
+	statements := strings.Split(sql, ";")
+	results := make([]interface{}, 0)
+
+	// Filter out empty statements
+	var validStatements []string
+	for _, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt != "" {
+			validStatements = append(validStatements, stmt)
+		}
+	}
+
+	total := len(validStatements)
+
+	// Execute each statement with progress reporting
+	for i, stmt := range validStatements {
+		if progressCallback != nil {
+			progressCallback(i+1, total, stmt)
+		}
+
+		result, err := engine.Execute(stmt)
+		if err != nil {
+			return results, fmt.Errorf("error executing statement %d (%s): %v", i+1, stmt, err)
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
 }

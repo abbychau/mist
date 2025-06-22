@@ -2,6 +2,7 @@ package mist
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -786,5 +787,237 @@ func TestSubqueries(t *testing.T) {
 	selectResult = result.(*SelectResult)
 	if len(selectResult.Rows) != 2 {
 		t.Errorf("Expected 2 rows from subquery with LIMIT, got %d", len(selectResult.Rows))
+	}
+}
+
+func TestImportSQLFile(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Test ImportSQLFileFromReader with a simple SQL script
+	sqlContent := `
+		-- Test SQL import
+		CREATE TABLE import_test (id INT, name VARCHAR(50));
+		INSERT INTO import_test VALUES (1, 'Alice');
+		INSERT INTO import_test VALUES (2, 'Bob');
+		CREATE INDEX idx_name ON import_test (name);
+	`
+
+	// Import from reader
+	results, err := engine.ImportSQLFileFromReader(strings.NewReader(sqlContent))
+	if err != nil {
+		t.Fatalf("Failed to import SQL: %v", err)
+	}
+
+	// Should have executed 4 statements
+	if len(results) != 4 {
+		t.Errorf("Expected 4 results, got %d", len(results))
+	}
+
+	// Verify the table was created and data inserted
+	result, err := engine.Execute("SELECT COUNT(*) FROM import_test")
+	if err != nil {
+		t.Fatalf("Failed to query imported table: %v", err)
+	}
+
+	selectResult, ok := result.(*SelectResult)
+	if !ok {
+		t.Fatalf("Expected SelectResult, got %T", result)
+	}
+
+	if len(selectResult.Rows) != 1 || selectResult.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows in imported table, got %v", selectResult.Rows[0][0])
+	}
+
+	// Verify the index was created by checking if it exists
+	db := engine.GetDatabase()
+	indexes := db.IndexManager.GetIndexesForTable("import_test", "")
+	if len(indexes) != 1 {
+		t.Errorf("Expected 1 index, got %d", len(indexes))
+	}
+}
+
+func TestImportSQLFileWithComments(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Test SQL with comments
+	sqlContent := `
+		-- This is a comment
+		CREATE TABLE comment_test (id INT, value VARCHAR(20));
+		# This is also a comment
+		INSERT INTO comment_test VALUES (1, 'test');
+		-- Another comment
+		INSERT INTO comment_test VALUES (2, 'data');
+	`
+
+	results, err := engine.ImportSQLFileFromReader(strings.NewReader(sqlContent))
+	if err != nil {
+		t.Fatalf("Failed to import SQL with comments: %v", err)
+	}
+
+	// Should execute 3 statements (comments should be filtered out)
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results, got %d", len(results))
+	}
+
+	// Verify data was inserted correctly
+	result, err := engine.Execute("SELECT COUNT(*) FROM comment_test")
+	if err != nil {
+		t.Fatalf("Failed to query table: %v", err)
+	}
+
+	selectResult := result.(*SelectResult)
+	if selectResult.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows, got %v", selectResult.Rows[0][0])
+	}
+}
+
+func TestDecimalAndTimestampTypes(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Test creating table with DECIMAL and TIMESTAMP types
+	createSQL := `CREATE TABLE invoices (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		company_id INT NOT NULL,
+		business_partner_id INT NOT NULL,
+		issue_date DATE NOT NULL,
+		payment_amount DECIMAL(15, 2) NOT NULL,
+		fee DECIMAL(15, 2) NOT NULL,
+		fee_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.0400,
+		consumption_tax DECIMAL(15, 2) NOT NULL,
+		consumption_tax_rate DECIMAL(5, 4) NOT NULL DEFAULT 0.1000,
+		invoice_amount DECIMAL(15, 2) NOT NULL,
+		payment_due_date DATE NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`
+
+	result, err := engine.Execute(createSQL)
+	if err != nil {
+		t.Fatalf("Failed to create invoices table: %v", err)
+	}
+
+	if result != "Table invoices created successfully" {
+		t.Errorf("Unexpected result: %v", result)
+	}
+
+	// Test inserting data with DECIMAL and TIMESTAMP values
+	insertSQL := `INSERT INTO invoices (company_id, business_partner_id, issue_date, payment_amount, fee, consumption_tax, invoice_amount, payment_due_date)
+		VALUES (1, 2, '2024-01-15', 1000.50, 50.25, 100.05, 1150.80, '2024-02-15')`
+
+	_, err = engine.Execute(insertSQL)
+	if err != nil {
+		t.Fatalf("Failed to insert invoice data: %v", err)
+	}
+
+	// Test selecting the data
+	selectResult, err := engine.Execute("SELECT payment_amount, fee, created_at FROM invoices WHERE id = 1")
+	if err != nil {
+		t.Fatalf("Failed to select invoice data: %v", err)
+	}
+
+	sr := selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(sr.Rows))
+	}
+
+	if len(sr.Columns) != 3 {
+		t.Errorf("Expected 3 columns, got %d", len(sr.Columns))
+	}
+
+	// Verify the DECIMAL values are stored correctly
+	paymentAmount := sr.Rows[0][0]
+	if paymentAmount == nil {
+		t.Error("Expected payment_amount to be set, got nil")
+	} else if paymentAmountStr, ok := paymentAmount.(string); ok {
+		if paymentAmountStr != "1000.50" {
+			t.Errorf("Expected payment_amount '1000.50', got %v", paymentAmountStr)
+		}
+	} else {
+		t.Errorf("Expected payment_amount to be string, got %T: %v", paymentAmount, paymentAmount)
+	}
+
+	fee := sr.Rows[0][1]
+	if fee == nil {
+		t.Error("Expected fee to be set, got nil")
+	} else if feeStr, ok := fee.(string); ok {
+		if feeStr != "50.25" {
+			t.Errorf("Expected fee '50.25', got %v", feeStr)
+		}
+	} else {
+		t.Errorf("Expected fee to be string, got %T: %v", fee, fee)
+	}
+
+	// Verify the TIMESTAMP was set (should be a string)
+	createdAt := sr.Rows[0][2]
+	if createdAt == nil {
+		t.Error("Expected created_at to be set, got nil")
+	} else if createdAtStr, ok := createdAt.(string); ok {
+		if createdAtStr == "" {
+			t.Error("Expected created_at to be set, got empty string")
+		}
+	} else {
+		t.Errorf("Expected created_at to be string, got %T: %v", createdAt, createdAt)
+	}
+}
+
+func TestRealDataSQLFiles(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Test importing the original SQL files with ENUM and FOREIGN KEY constraints
+	// These should now work with our enhanced parser
+	results, err := engine.ImportSQLFile("../examples/test_data_real/001_create_tables.sql")
+	if err != nil {
+		t.Fatalf("Failed to import original create tables SQL: %v", err)
+	}
+
+	// Should have executed 5 CREATE TABLE statements
+	if len(results) != 5 {
+		t.Errorf("Expected 5 results from create tables, got %d", len(results))
+	}
+
+	// Test importing the sample data
+	results, err = engine.ImportSQLFile("../examples/test_data_real/002_insert_sample_data.sql")
+	if err != nil {
+		t.Fatalf("Failed to import original sample data SQL: %v", err)
+	}
+
+	// Should have executed 5 INSERT statements
+	if len(results) != 5 {
+		t.Errorf("Expected 5 results from sample data, got %d", len(results))
+	}
+
+	// Verify the data was imported correctly
+	result, err := engine.Execute("SELECT COUNT(*) FROM companies")
+	if err != nil {
+		t.Fatalf("Failed to query companies: %v", err)
+	}
+
+	selectResult, ok := result.(*SelectResult)
+	if !ok {
+		t.Fatalf("Expected SelectResult, got %T", result)
+	}
+
+	if len(selectResult.Rows) != 1 || selectResult.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 companies, got %v", selectResult.Rows[0][0])
+	}
+
+	// Test that ENUM values work as VARCHAR
+	result, err = engine.Execute("SELECT status FROM invoices WHERE id = 1")
+	if err != nil {
+		t.Fatalf("Failed to query invoice status: %v", err)
+	}
+
+	selectResult, ok = result.(*SelectResult)
+	if !ok {
+		t.Fatalf("Expected SelectResult, got %T", result)
+	}
+
+	if len(selectResult.Rows) != 1 {
+		t.Errorf("Expected 1 invoice, got %d", len(selectResult.Rows))
+	}
+
+	status := selectResult.Rows[0][0]
+	if status != "unprocessed" {
+		t.Errorf("Expected status 'unprocessed', got %v", status)
 	}
 }

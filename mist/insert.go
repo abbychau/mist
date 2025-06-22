@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
@@ -71,6 +72,44 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 
 		// Create a row with default values
 		rowValues := make([]interface{}, len(table.Columns))
+
+		// First, fill in default values for all columns
+		for i, col := range table.Columns {
+			if col.Default != nil {
+				if col.Default == "CURRENT_TIMESTAMP" {
+					rowValues[i] = time.Now().Format("2006-01-02 15:04:05")
+				} else {
+					// Convert the default value to the appropriate type
+					convertedDefault, err := convertValueToColumnType(col.Default, col.Type)
+					if err != nil {
+						return fmt.Errorf("error converting default value for column %s: %v", col.Name, err)
+					}
+					rowValues[i] = convertedDefault
+				}
+			} else if !col.NotNull {
+				rowValues[i] = nil
+			} else {
+				// Set appropriate default for NOT NULL columns without explicit default
+				switch col.Type {
+				case TypeInt:
+					rowValues[i] = int64(0)
+				case TypeFloat:
+					rowValues[i] = float64(0)
+				case TypeVarchar, TypeText:
+					rowValues[i] = ""
+				case TypeBool:
+					rowValues[i] = false
+				case TypeDecimal:
+					rowValues[i] = "0.00"
+				case TypeTimestamp:
+					rowValues[i] = time.Now().Format("2006-01-02 15:04:05")
+				case TypeDate:
+					rowValues[i] = time.Now().Format("2006-01-02")
+				default:
+					rowValues[i] = nil
+				}
+			}
+		}
 
 		// Fill in the specified values
 		for i, expr := range valueList {
@@ -215,6 +254,42 @@ func evaluateValueExpr(expr ast.ValueExpr, expectedType ColumnType) (interface{}
 			return str == "true" || str == "1", nil
 		default:
 			return false, nil
+		}
+
+	case TypeDecimal:
+		// Convert to string representation for DECIMAL
+		switch v := value.(type) {
+		case string:
+			return v, nil
+		case float64:
+			return fmt.Sprintf("%.10f", v), nil
+		case float32:
+			return fmt.Sprintf("%.10f", v), nil
+		case int64:
+			return fmt.Sprintf("%d", v), nil
+		case int:
+			return fmt.Sprintf("%d", v), nil
+		default:
+			// Handle MyDecimal and other types by converting to string
+			str := fmt.Sprintf("%v", v)
+			// Clean up the string if it contains type information
+			if strings.Contains(str, "KindMysqlDecimal") {
+				// Extract just the numeric part
+				parts := strings.Fields(str)
+				if len(parts) > 1 {
+					return parts[1], nil
+				}
+			}
+			return str, nil
+		}
+
+	case TypeTimestamp, TypeDate:
+		// Convert to string representation for timestamps and dates
+		switch v := value.(type) {
+		case string:
+			return v, nil
+		default:
+			return fmt.Sprintf("%v", v), nil
 		}
 
 	default:

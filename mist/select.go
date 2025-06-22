@@ -472,6 +472,16 @@ func inferColumnType(value interface{}) ColumnType {
 	case bool:
 		return TypeBool
 	case string:
+		// Try to infer if it's a timestamp or date format
+		if str := value.(string); str != "" {
+			// Simple heuristic for timestamp/date detection
+			if len(str) >= 10 && (str[4] == '-' || str[2] == '/') {
+				if len(str) > 10 {
+					return TypeTimestamp
+				}
+				return TypeDate
+			}
+		}
 		return TypeVarchar
 	default:
 		return TypeText

@@ -28,6 +28,12 @@
 //
 //	// Print results
 //	mist.PrintResult(result)
+//
+//	// Import SQL files
+//	results, err := engine.ImportSQLFile("schema.sql")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 package mist
 
 import (

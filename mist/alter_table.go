@@ -3,6 +3,7 @@ package mist
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
@@ -51,20 +52,23 @@ func executeAddColumn(db *Database, table *Table, spec *ast.AlterTableSpec) erro
 
 	for _, colDef := range spec.NewColumns {
 		// Parse the new column
-		colType, length, err := parseColumnType(colDef)
+		colType, length, precision, scale, err := parseColumnType(colDef)
 		if err != nil {
 			return fmt.Errorf("error parsing new column %s: %v", colDef.Name.Name.String(), err)
 		}
 
-		notNull, primary, autoIncr := parseColumnConstraints(colDef)
+		notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
 
 		newColumn := Column{
-			Name:     colDef.Name.Name.String(),
-			Type:     colType,
-			Length:   length,
-			NotNull:  notNull,
-			Primary:  primary,
-			AutoIncr: autoIncr,
+			Name:      colDef.Name.Name.String(),
+			Type:      colType,
+			Length:    length,
+			Precision: precision,
+			Scale:     scale,
+			NotNull:   notNull,
+			Primary:   primary,
+			AutoIncr:  autoIncr,
+			Default:   defaultValue,
 		}
 
 		// Check if column already exists
@@ -76,9 +80,9 @@ func executeAddColumn(db *Database, table *Table, spec *ast.AlterTableSpec) erro
 		table.Columns = append(table.Columns, newColumn)
 
 		// Add default value to all existing rows
-		defaultValue := getDefaultValue(newColumn)
+		defaultVal := getDefaultValue(newColumn)
 		for i := range table.Rows {
-			table.Rows[i].Values = append(table.Rows[i].Values, defaultValue)
+			table.Rows[i].Values = append(table.Rows[i].Values, defaultVal)
 		}
 	}
 
@@ -140,24 +144,27 @@ func executeModifyColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 	}
 
 	// Parse the new column definition
-	colType, length, err := parseColumnType(colDef)
+	colType, length, precision, scale, err := parseColumnType(colDef)
 	if err != nil {
 		return fmt.Errorf("error parsing modified column %s: %v", columnName, err)
 	}
 
-	notNull, primary, autoIncr := parseColumnConstraints(colDef)
+	notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
 
 	// Update the column definition
 	table.Columns[colIndex] = Column{
-		Name:     columnName,
-		Type:     colType,
-		Length:   length,
-		NotNull:  notNull,
-		Primary:  primary,
-		AutoIncr: autoIncr,
+		Name:      columnName,
+		Type:      colType,
+		Length:    length,
+		Precision: precision,
+		Scale:     scale,
+		NotNull:   notNull,
+		Primary:   primary,
+		AutoIncr:  autoIncr,
+		Default:   defaultValue,
 	}
 
 	// Convert existing data to new type if possible
@@ -197,24 +204,27 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 	}
 
 	// Parse the new column definition
-	colType, length, err := parseColumnType(colDef)
+	colType, length, precision, scale, err := parseColumnType(colDef)
 	if err != nil {
 		return fmt.Errorf("error parsing changed column %s: %v", newColumnName, err)
 	}
 
-	notNull, primary, autoIncr := parseColumnConstraints(colDef)
+	notNull, primary, autoIncr, defaultValue := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
 
 	// Update the column definition
 	table.Columns[colIndex] = Column{
-		Name:     newColumnName,
-		Type:     colType,
-		Length:   length,
-		NotNull:  notNull,
-		Primary:  primary,
-		AutoIncr: autoIncr,
+		Name:      newColumnName,
+		Type:      colType,
+		Length:    length,
+		Precision: precision,
+		Scale:     scale,
+		NotNull:   notNull,
+		Primary:   primary,
+		AutoIncr:  autoIncr,
+		Default:   defaultValue,
 	}
 
 	// Convert existing data to new type if possible
@@ -245,6 +255,14 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 
 // getDefaultValue returns an appropriate default value for a column type
 func getDefaultValue(column Column) interface{} {
+	// If column has a specific default value, use it
+	if column.Default != nil {
+		if column.Default == "CURRENT_TIMESTAMP" {
+			return time.Now().Format("2006-01-02 15:04:05")
+		}
+		return column.Default
+	}
+
 	if !column.NotNull {
 		return nil
 	}
@@ -258,6 +276,12 @@ func getDefaultValue(column Column) interface{} {
 		return ""
 	case TypeBool:
 		return false
+	case TypeDecimal:
+		return "0.00"
+	case TypeTimestamp:
+		return time.Now().Format("2006-01-02 15:04:05")
+	case TypeDate:
+		return time.Now().Format("2006-01-02")
 	default:
 		return nil
 	}

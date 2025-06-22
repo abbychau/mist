@@ -18,6 +18,7 @@ Mist is a lightweight, in-memory SQL database engine that supports MySQL-compati
 - **Interactive mode** for testing queries
 - **Thread-safe operations**
 - **Library support** for embedding in Go applications
+- **Enhanced MySQL compatibility** with graceful handling of ENUM, FOREIGN KEY, and UNIQUE constraints
 
 ## Installation
 
@@ -333,6 +334,15 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error)
 // ExecuteMultiple runs multiple SQL statements separated by semicolons
 func (engine *SQLEngine) ExecuteMultiple(sql string) ([]interface{}, error)
 
+// ImportSQLFile reads a .sql file and executes all SQL statements in it
+func (engine *SQLEngine) ImportSQLFile(filename string) ([]interface{}, error)
+
+// ImportSQLFileFromReader reads SQL statements from an io.Reader and executes them
+func (engine *SQLEngine) ImportSQLFileFromReader(reader io.Reader) ([]interface{}, error)
+
+// ImportSQLFileWithProgress reads a .sql file and executes statements with progress reporting
+func (engine *SQLEngine) ImportSQLFileWithProgress(filename string, progressCallback func(current, total int, statement string)) ([]interface{}, error)
+
 // GetDatabase returns the underlying database (for advanced usage)
 func (engine *SQLEngine) GetDatabase() *Database
 
@@ -345,6 +355,76 @@ func PrintResult(result interface{})
 // Interactive starts an interactive SQL session
 func Interactive(engine *SQLEngine)
 ```
+
+### SQL File Import
+
+Mist supports importing SQL files containing multiple statements. This is useful for:
+- Setting up database schemas
+- Loading sample data
+- Running migration scripts
+- Batch operations
+
+#### Basic SQL File Import
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/abbychau/mist/mist"
+)
+
+func main() {
+    engine := mist.NewSQLEngine()
+
+    // Import a SQL file
+    results, err := engine.ImportSQLFile("schema.sql")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Executed %d statements\n", len(results))
+}
+```
+
+#### Import from String or Reader
+
+```go
+// Import from string
+sqlContent := `
+    CREATE TABLE users (id INT, name VARCHAR(50));
+    INSERT INTO users VALUES (1, 'Alice');
+    INSERT INTO users VALUES (2, 'Bob');
+`
+
+results, err := engine.ImportSQLFileFromReader(strings.NewReader(sqlContent))
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Import with Progress Reporting
+
+```go
+// Progress callback function
+progressCallback := func(current, total int, statement string) {
+    fmt.Printf("Executing %d/%d: %s\n", current, total, statement)
+}
+
+results, err := engine.ImportSQLFileWithProgress("large_dataset.sql", progressCallback)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Features
+
+- **Automatic statement separation**: Handles multiple SQL statements separated by semicolons
+- **Comment filtering**: Ignores SQL comments (-- and #)
+- **Error handling**: Provides detailed error messages with statement numbers
+- **Progress reporting**: Optional progress callbacks for large files
+- **Flexible input**: Support for files, strings, and io.Reader interfaces
 
 ### Supported SQL Statements
 
@@ -437,6 +517,10 @@ SHOW INDEX FROM table_name;
 - `TEXT` - Text data
 - `FLOAT` - Floating-point numbers
 - `BOOL` - Boolean values
+- `DECIMAL(precision, scale)` - Fixed-point decimal numbers
+- `TIMESTAMP` - Date and time values
+- `DATE` - Date values
+- `ENUM` - Enumerated values (stored as VARCHAR for compatibility)
 
 ## Column Constraints
 
@@ -469,6 +553,9 @@ Mist consists of several key components:
 - **Limited SQL features**: Subset of MySQL functionality
 - **No user management**: No authentication or authorization
 - **Single-node**: No distributed or clustering support
+- **FOREIGN KEY constraints**: Parsed but not enforced (for compatibility)
+- **UNIQUE constraints**: Parsed but not enforced (for compatibility)
+- **ON UPDATE triggers**: Parsed but not executed (for compatibility)
 
 
 ## Testing

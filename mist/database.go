@@ -15,6 +15,9 @@ const (
 	TypeText
 	TypeFloat
 	TypeBool
+	TypeDecimal
+	TypeTimestamp
+	TypeDate
 )
 
 func (ct ColumnType) String() string {
@@ -29,6 +32,12 @@ func (ct ColumnType) String() string {
 		return "FLOAT"
 	case TypeBool:
 		return "BOOL"
+	case TypeDecimal:
+		return "DECIMAL"
+	case TypeTimestamp:
+		return "TIMESTAMP"
+	case TypeDate:
+		return "DATE"
 	default:
 		return "UNKNOWN"
 	}
@@ -36,12 +45,15 @@ func (ct ColumnType) String() string {
 
 // Column represents a table column definition
 type Column struct {
-	Name     string
-	Type     ColumnType
-	Length   int // for VARCHAR
-	NotNull  bool
-	Primary  bool
-	AutoIncr bool
+	Name      string
+	Type      ColumnType
+	Length    int // for VARCHAR
+	Precision int // for DECIMAL (total digits)
+	Scale     int // for DECIMAL (digits after decimal point)
+	NotNull   bool
+	Primary   bool
+	AutoIncr  bool
+	Default   interface{} // default value for the column
 }
 
 // Row represents a single row of data
@@ -142,6 +154,34 @@ func (t *Table) validateValue(colIndex int, value interface{}) error {
 			return nil
 		}
 		return fmt.Errorf("invalid type for column %s: expected bool, got %T", col.Name, value)
+	case TypeDecimal:
+		// Accept various numeric types for DECIMAL
+		switch value.(type) {
+		case float32, float64, int, int32, int64, string:
+			return nil
+		default:
+			// Check if it's a MyDecimal type from TiDB
+			if fmt.Sprintf("%T", value) == "*types.MyDecimal" {
+				return nil
+			}
+			return fmt.Errorf("invalid type for column %s: expected numeric value, got %T", col.Name, value)
+		}
+	case TypeTimestamp:
+		// Accept time.Time or string for TIMESTAMP
+		switch value.(type) {
+		case string:
+			return nil // Will be parsed later
+		default:
+			return fmt.Errorf("invalid type for column %s: expected timestamp, got %T", col.Name, value)
+		}
+	case TypeDate:
+		// Accept time.Time or string for DATE
+		switch value.(type) {
+		case string:
+			return nil // Will be parsed later
+		default:
+			return fmt.Errorf("invalid type for column %s: expected date, got %T", col.Name, value)
+		}
 	}
 
 	return nil
