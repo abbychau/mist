@@ -32,6 +32,10 @@ func parseColumnType(colDef *ast.ColumnDef) (ColumnType, int, int, int, error) {
 		// Handle ENUM type properly
 		length := 255 // default max length for enum values
 		return TypeEnum, length, 0, 0, nil
+	case mysql.TypeSet:
+		// Handle SET type properly
+		length := 255 // default max length for set values
+		return TypeSet, length, 0, 0, nil
 	case mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:
 		return TypeText, 0, 0, 0, nil
 	case mysql.TypeFloat, mysql.TypeDouble:
@@ -52,6 +56,10 @@ func parseColumnType(colDef *ast.ColumnDef) (ColumnType, int, int, int, error) {
 		return TypeDate, 0, 0, 0, nil
 	case mysql.TypeDatetime:
 		return TypeTimestamp, 0, 0, 0, nil
+	case mysql.TypeDuration:
+		return TypeTime, 0, 0, 0, nil
+	case mysql.TypeYear:
+		return TypeYear, 0, 0, 0, nil
 	case mysql.TypeBit:
 		return TypeBool, 0, 0, 0, nil
 	default:
@@ -60,11 +68,18 @@ func parseColumnType(colDef *ast.ColumnDef) (ColumnType, int, int, int, error) {
 }
 
 // parseColumnConstraints extracts constraints from column definition
-func parseColumnConstraints(colDef *ast.ColumnDef) (notNull, primary, unique, autoIncr bool, defaultValue, onUpdateValue interface{}, enumValues []string) {
+func parseColumnConstraints(colDef *ast.ColumnDef) (notNull, primary, unique, autoIncr bool, defaultValue, onUpdateValue interface{}, enumValues []string, setValues []string) {
 	// Extract ENUM values if this is an enum column
 	if colDef.Tp.GetType() == mysql.TypeEnum {
 		for _, enumValue := range colDef.Tp.GetElems() {
 			enumValues = append(enumValues, enumValue)
+		}
+	}
+	
+	// Extract SET values if this is a set column
+	if colDef.Tp.GetType() == mysql.TypeSet {
+		for _, setValue := range colDef.Tp.GetElems() {
+			setValues = append(setValues, setValue)
 		}
 	}
 
@@ -134,7 +149,7 @@ func ExecuteCreateTable(db *Database, stmt *ast.CreateTableStmt) error {
 			return fmt.Errorf("error parsing column %s: %v", col.Name.Name.String(), err)
 		}
 
-		notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(col)
+		notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues, setValues := parseColumnConstraints(col)
 
 		column := Column{
 			Name:       col.Name.Name.String(),
@@ -149,6 +164,7 @@ func ExecuteCreateTable(db *Database, stmt *ast.CreateTableStmt) error {
 			Default:    defaultValue,
 			OnUpdate:   onUpdateValue,
 			EnumValues: enumValues,
+			SetValues:  setValues,
 		}
 
 		columns = append(columns, column)

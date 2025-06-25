@@ -200,6 +200,24 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 	case *ast.ReleaseSavepointStmt:
 		return engine.executeReleaseSavepoint(stmt)
 
+	case *ast.DropTableStmt:
+		err := ExecuteDropTable(engine.database, stmt)
+		if err != nil {
+			return nil, err
+		}
+		return "Table dropped successfully", nil
+
+	case *ast.TruncateTableStmt:
+		err := ExecuteTruncateTable(engine.database, stmt)
+		if err != nil {
+			return nil, err
+		}
+		return "Table truncated successfully", nil
+
+	case *ast.SetOprStmt:
+		// UNION operations are not fully supported due to parser limitations
+		return nil, fmt.Errorf("UNION operations require more complex parser integration - not yet supported")
+
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", stmt)
 	}

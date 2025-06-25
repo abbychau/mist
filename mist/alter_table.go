@@ -57,7 +57,7 @@ func executeAddColumn(db *Database, table *Table, spec *ast.AlterTableSpec) erro
 			return fmt.Errorf("error parsing new column %s: %v", colDef.Name.Name.String(), err)
 		}
 
-		notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
+		notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues, setValues := parseColumnConstraints(colDef)
 
 		newColumn := Column{
 			Name:       colDef.Name.Name.String(),
@@ -72,6 +72,7 @@ func executeAddColumn(db *Database, table *Table, spec *ast.AlterTableSpec) erro
 			Default:    defaultValue,
 			OnUpdate:   onUpdateValue,
 			EnumValues: enumValues,
+			SetValues:  setValues,
 		}
 
 		// Check if column already exists
@@ -152,7 +153,7 @@ func executeModifyColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		return fmt.Errorf("error parsing modified column %s: %v", columnName, err)
 	}
 
-	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
+	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues, setValues := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
@@ -171,6 +172,7 @@ func executeModifyColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		Default:    defaultValue,
 		OnUpdate:   onUpdateValue,
 		EnumValues: enumValues,
+		SetValues:  setValues,
 	}
 
 	// Convert existing data to new type if possible
@@ -215,7 +217,7 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		return fmt.Errorf("error parsing changed column %s: %v", newColumnName, err)
 	}
 
-	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues := parseColumnConstraints(colDef)
+	notNull, primary, unique, autoIncr, defaultValue, onUpdateValue, enumValues, setValues := parseColumnConstraints(colDef)
 
 	table.mutex.Lock()
 	defer table.mutex.Unlock()
@@ -234,6 +236,7 @@ func executeChangeColumn(db *Database, table *Table, spec *ast.AlterTableSpec) e
 		Default:    defaultValue,
 		OnUpdate:   onUpdateValue,
 		EnumValues: enumValues,
+		SetValues:  setValues,
 	}
 
 	// Convert existing data to new type if possible

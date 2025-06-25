@@ -322,3 +322,36 @@ func (im *IndexManager) ListIndexes() []string {
 	}
 	return names
 }
+
+// ClearTableIndexes clears all index data for a table (used by TRUNCATE)
+func (im *IndexManager) ClearTableIndexes(tableName string) {
+	im.mutex.RLock()
+	defer im.mutex.RUnlock()
+
+	for _, index := range im.indexes {
+		if strings.EqualFold(index.TableName, tableName) {
+			index.mutex.Lock()
+			index.Data = make(map[interface{}][]int)
+			index.mutex.Unlock()
+		}
+	}
+}
+
+// DropTableIndexes removes all indexes for a table (used by DROP TABLE)
+func (im *IndexManager) DropTableIndexes(tableName string) {
+	im.mutex.Lock()
+	defer im.mutex.Unlock()
+
+	// Collect indexes to delete
+	var indexesToDelete []string
+	for name, index := range im.indexes {
+		if strings.EqualFold(index.TableName, tableName) {
+			indexesToDelete = append(indexesToDelete, name)
+		}
+	}
+
+	// Delete the collected indexes
+	for _, name := range indexesToDelete {
+		delete(im.indexes, name)
+	}
+}

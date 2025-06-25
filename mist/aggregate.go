@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/opcode"
 )
 
 // AggregateType represents different types of aggregate functions
@@ -128,7 +129,7 @@ func hasAggregateFunction(fields []*ast.SelectField) bool {
 }
 
 // executeAggregateQuery processes a SELECT query with aggregate functions
-func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr ast.ExprNode, groupBy *ast.GroupByClause, limit *ast.Limit) (*SelectResult, error) {
+func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr ast.ExprNode, groupBy *ast.GroupByClause, having *ast.HavingClause, limit *ast.Limit) (*SelectResult, error) {
 	// Get all rows and apply WHERE filter
 	rows := table.GetRows()
 	var filteredRows []Row
@@ -149,7 +150,7 @@ func executeAggregateQuery(table *Table, fields []*ast.SelectField, whereExpr as
 
 	// Check if we have GROUP BY
 	if groupBy != nil && len(groupBy.Items) > 0 {
-		return executeGroupByQuery(table, fields, filteredRows, groupBy, limit)
+		return executeGroupByQuery(table, fields, filteredRows, groupBy, having, limit)
 	}
 
 	// No GROUP BY - process as simple aggregate query
@@ -383,7 +384,7 @@ func applyLimitToRows(rows [][]interface{}, limit *ast.Limit) [][]interface{} {
 }
 
 // executeGroupByQuery processes a SELECT query with GROUP BY clause
-func executeGroupByQuery(table *Table, fields []*ast.SelectField, rows []Row, groupBy *ast.GroupByClause, limit *ast.Limit) (*SelectResult, error) {
+func executeGroupByQuery(table *Table, fields []*ast.SelectField, rows []Row, groupBy *ast.GroupByClause, having *ast.HavingClause, limit *ast.Limit) (*SelectResult, error) {
 	// Extract GROUP BY columns
 	var groupByColumns []string
 	var groupByIndexes []int
@@ -499,6 +500,15 @@ func executeGroupByQuery(table *Table, fields []*ast.SelectField, rows []Row, gr
 		resultRows = append(resultRows, resultRow)
 	}
 
+	// Apply HAVING clause if present
+	if having != nil {
+		filteredRows, err := applyHavingClause(table, resultRows, resultColumns, isAggregate, aggregates, having)
+		if err != nil {
+			return nil, err
+		}
+		resultRows = filteredRows
+	}
+
 	// Apply LIMIT clause if present
 	if limit != nil {
 		resultRows = applyLimitToRows(resultRows, limit)
@@ -508,4 +518,157 @@ func executeGroupByQuery(table *Table, fields []*ast.SelectField, rows []Row, gr
 		Columns: resultColumns,
 		Rows:    resultRows,
 	}, nil
+}
+
+// applyHavingClause filters result rows based on HAVING clause conditions
+func applyHavingClause(table *Table, resultRows [][]interface{}, resultColumns []string, isAggregate []bool, aggregates []AggregateFunction, having *ast.HavingClause) ([][]interface{}, error) {
+	if having == nil {
+		return resultRows, nil
+	}
+
+	var filteredRows [][]interface{}
+
+	for _, row := range resultRows {
+		// Create a virtual row context for HAVING evaluation
+		virtualTable := &Table{
+			Name:    "having_context",
+			Columns: make([]Column, len(resultColumns)),
+		}
+
+		// Set up virtual columns for aggregate result evaluation
+		for i, colName := range resultColumns {
+			colType := TypeText // default
+			if len(row) > i && row[i] != nil {
+				colType = inferColumnType(row[i])
+			}
+			virtualTable.Columns[i] = Column{
+				Name: colName,
+				Type: colType,
+			}
+		}
+
+		virtualRow := Row{Values: row}
+
+		// Evaluate HAVING condition against the result row
+		match, err := evaluateHavingCondition(having.Expr, virtualTable, virtualRow, table, isAggregate, aggregates)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating HAVING clause: %v", err)
+		}
+
+		if match {
+			filteredRows = append(filteredRows, row)
+		}
+	}
+
+	return filteredRows, nil
+}
+
+// evaluateHavingCondition evaluates a HAVING condition against a result row
+func evaluateHavingCondition(expr ast.ExprNode, virtualTable *Table, resultRow Row, originalTable *Table, isAggregate []bool, aggregates []AggregateFunction) (bool, error) {
+	switch e := expr.(type) {
+	case *ast.BinaryOperationExpr:
+		return evaluateHavingBinaryOperation(e, virtualTable, resultRow, originalTable, isAggregate, aggregates)
+	case *ast.AggregateFuncExpr:
+		// Direct aggregate function in HAVING - should be compared with a value
+		return false, fmt.Errorf("aggregate function in HAVING must be part of a comparison")
+	case *ast.ColumnNameExpr:
+		// Column reference in HAVING - treat as boolean
+		colIndex := virtualTable.GetColumnIndex(e.Name.Name.String())
+		if colIndex == -1 {
+			return false, fmt.Errorf("column %s does not exist in HAVING context", e.Name.Name.String())
+		}
+		value := resultRow.Values[colIndex]
+		return isTruthy(value), nil
+	default:
+		return false, fmt.Errorf("unsupported HAVING expression type: %T", expr)
+	}
+}
+
+// evaluateHavingBinaryOperation evaluates binary operations in HAVING clause
+func evaluateHavingBinaryOperation(expr *ast.BinaryOperationExpr, virtualTable *Table, resultRow Row, originalTable *Table, isAggregate []bool, aggregates []AggregateFunction) (bool, error) {
+	leftVal, err := evaluateHavingExpression(expr.L, virtualTable, resultRow, originalTable, isAggregate, aggregates)
+	if err != nil {
+		return false, err
+	}
+
+	rightVal, err := evaluateHavingExpression(expr.R, virtualTable, resultRow, originalTable, isAggregate, aggregates)
+	if err != nil {
+		return false, err
+	}
+
+	switch expr.Op {
+	case opcode.EQ:
+		return compareValues(leftVal, rightVal) == 0, nil
+	case opcode.NE:
+		return compareValues(leftVal, rightVal) != 0, nil
+	case opcode.LT:
+		return compareValues(leftVal, rightVal) < 0, nil
+	case opcode.LE:
+		return compareValues(leftVal, rightVal) <= 0, nil
+	case opcode.GT:
+		return compareValues(leftVal, rightVal) > 0, nil
+	case opcode.GE:
+		return compareValues(leftVal, rightVal) >= 0, nil
+	case opcode.LogicAnd:
+		return isTruthy(leftVal) && isTruthy(rightVal), nil
+	case opcode.LogicOr:
+		return isTruthy(leftVal) || isTruthy(rightVal), nil
+	default:
+		return false, fmt.Errorf("unsupported binary operator in HAVING: %v", expr.Op)
+	}
+}
+
+// evaluateHavingExpression evaluates an expression in HAVING context
+func evaluateHavingExpression(expr ast.ExprNode, virtualTable *Table, resultRow Row, originalTable *Table, isAggregate []bool, aggregates []AggregateFunction) (interface{}, error) {
+	switch e := expr.(type) {
+	case *ast.ColumnNameExpr:
+		// Look for the column in the result columns
+		colIndex := virtualTable.GetColumnIndex(e.Name.Name.String())
+		if colIndex != -1 {
+			return resultRow.Values[colIndex], nil
+		}
+		
+		// Check if this matches any aggregate function pattern
+		colName := e.Name.Name.String()
+		for i, isAgg := range isAggregate {
+			if isAgg {
+				aggFunc := aggregates[i]
+				var expectedName string
+				if aggFunc.IsStar {
+					expectedName = fmt.Sprintf("%s(*)", aggFunc.Type.String())
+				} else {
+					expectedName = fmt.Sprintf("%s(%s)", aggFunc.Type.String(), aggFunc.Column)
+				}
+				if expectedName == colName {
+					return resultRow.Values[i], nil
+				}
+			}
+		}
+		
+		return nil, fmt.Errorf("column %s does not exist in HAVING context", colName)
+		
+	case *ast.AggregateFuncExpr:
+		// Direct aggregate function - need to match it with our computed aggregates
+		aggFunc, err := detectAggregateFunction(&ast.SelectField{Expr: e})
+		if err != nil {
+			return nil, err
+		}
+		
+		// Find matching aggregate in our list
+		for i, computedAgg := range aggregates {
+			if aggFunc.Type == computedAgg.Type && 
+			   aggFunc.Column == computedAgg.Column && 
+			   aggFunc.IsStar == computedAgg.IsStar {
+				return resultRow.Values[i], nil
+			}
+		}
+		
+		return nil, fmt.Errorf("aggregate function %s not found in SELECT list", aggFunc.Type.String())
+		
+	case ast.ValueExpr:
+		return e.GetValue(), nil
+		
+	default:
+		return nil, fmt.Errorf("unsupported expression type in HAVING: %T", expr)
+	}
 }

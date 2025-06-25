@@ -19,6 +19,9 @@ const (
 	TypeTimestamp
 	TypeDate
 	TypeEnum
+	TypeTime
+	TypeYear
+	TypeSet
 )
 
 func (ct ColumnType) String() string {
@@ -41,6 +44,12 @@ func (ct ColumnType) String() string {
 		return "DATE"
 	case TypeEnum:
 		return "ENUM"
+	case TypeTime:
+		return "TIME"
+	case TypeYear:
+		return "YEAR"
+	case TypeSet:
+		return "SET"
 	default:
 		return "UNKNOWN"
 	}
@@ -60,6 +69,7 @@ type Column struct {
 	Default    interface{} // default value for the column
 	OnUpdate   interface{} // ON UPDATE value (e.g., CURRENT_TIMESTAMP)
 	EnumValues []string    // for ENUM type
+	SetValues  []string    // for SET type
 	ForeignKey *ForeignKey // foreign key constraint, if any
 }
 
@@ -235,6 +245,41 @@ func (t *Table) validateValue(colIndex int, value interface{}) error {
 			return fmt.Errorf("invalid enum value for column %s: %s (allowed: %v)", col.Name, str, col.EnumValues)
 		}
 		return fmt.Errorf("invalid type for column %s: expected string for enum, got %T", col.Name, value)
+	case TypeTime:
+		// Accept string for TIME (format: HH:MM:SS or HH:MM:SS.mmm)
+		if str, ok := value.(string); ok {
+			if err := validateTimeFormat(str); err != nil {
+				return fmt.Errorf("invalid time format for column %s: %s (expected HH:MM:SS)", col.Name, str)
+			}
+			return nil
+		}
+		return fmt.Errorf("invalid type for column %s: expected string for time, got %T", col.Name, value)
+	case TypeYear:
+		// Accept int or string for YEAR (1901-2155, or 2-digit format 70-99 for 1970-1999, 00-69 for 2000-2069)
+		switch v := value.(type) {
+		case int, int32, int64:
+			year := fmt.Sprintf("%v", v)
+			if err := validateYearFormat(year); err != nil {
+				return fmt.Errorf("invalid year value for column %s: %s", col.Name, err.Error())
+			}
+			return nil
+		case string:
+			if err := validateYearFormat(v); err != nil {
+				return fmt.Errorf("invalid year format for column %s: %s", col.Name, err.Error())
+			}
+			return nil
+		default:
+			return fmt.Errorf("invalid type for column %s: expected int or string for year, got %T", col.Name, value)
+		}
+	case TypeSet:
+		if str, ok := value.(string); ok {
+			// Parse SET value (comma-separated list of values)
+			if err := validateSetValue(str, col.SetValues); err != nil {
+				return fmt.Errorf("invalid set value for column %s: %s", col.Name, err.Error())
+			}
+			return nil
+		}
+		return fmt.Errorf("invalid type for column %s: expected string for set, got %T", col.Name, value)
 	}
 
 	return nil
@@ -710,4 +755,154 @@ func valuesEqual(a, b interface{}) bool {
 	aStr := fmt.Sprintf("%v", a)
 	bStr := fmt.Sprintf("%v", b)
 	return aStr == bStr
+}
+
+// validateTimeFormat validates TIME format (HH:MM:SS or HH:MM:SS.mmm)
+func validateTimeFormat(timeStr string) error {
+	if timeStr == "" {
+		return fmt.Errorf("empty time string")
+	}
+
+	// Split by colon for basic HH:MM:SS format
+	parts := strings.Split(timeStr, ":")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid format, expected HH:MM:SS")
+	}
+
+	// Validate hour (00-23)
+	hour := strings.TrimSpace(parts[0])
+	if len(hour) != 2 {
+		return fmt.Errorf("hour must be 2 digits")
+	}
+	hourVal, err := fmt.Sscanf(hour, "%d", new(int))
+	if err != nil || hourVal != 1 {
+		return fmt.Errorf("invalid hour format")
+	}
+	var h int
+	fmt.Sscanf(hour, "%d", &h)
+	if h < 0 || h > 23 {
+		return fmt.Errorf("hour must be between 00-23")
+	}
+
+	// Validate minute (00-59)
+	minute := strings.TrimSpace(parts[1])
+	if len(minute) != 2 {
+		return fmt.Errorf("minute must be 2 digits")
+	}
+	minuteVal, err := fmt.Sscanf(minute, "%d", new(int))
+	if err != nil || minuteVal != 1 {
+		return fmt.Errorf("invalid minute format")
+	}
+	var m int
+	fmt.Sscanf(minute, "%d", &m)
+	if m < 0 || m > 59 {
+		return fmt.Errorf("minute must be between 00-59")
+	}
+
+	// Validate second (00-59, can have microseconds)
+	secondPart := strings.TrimSpace(parts[2])
+	secondStr := secondPart
+	if strings.Contains(secondPart, ".") {
+		// Has microseconds
+		secParts := strings.Split(secondPart, ".")
+		if len(secParts) != 2 {
+			return fmt.Errorf("invalid microsecond format")
+		}
+		secondStr = secParts[0]
+		microsecondStr := secParts[1]
+		if len(microsecondStr) > 6 {
+			return fmt.Errorf("microseconds cannot exceed 6 digits")
+		}
+	}
+
+	if len(secondStr) != 2 {
+		return fmt.Errorf("second must be 2 digits")
+	}
+	secondVal, err := fmt.Sscanf(secondStr, "%d", new(int))
+	if err != nil || secondVal != 1 {
+		return fmt.Errorf("invalid second format")
+	}
+	var s int
+	fmt.Sscanf(secondStr, "%d", &s)
+	if s < 0 || s > 59 {
+		return fmt.Errorf("second must be between 00-59")
+	}
+
+	return nil
+}
+
+// validateYearFormat validates YEAR format (1901-2155, 4-digit, or 2-digit 70-99/00-69)
+func validateYearFormat(yearStr string) error {
+	if yearStr == "" {
+		return fmt.Errorf("empty year string")
+	}
+
+	yearStr = strings.TrimSpace(yearStr)
+	
+	// Try to parse as integer
+	var year int
+	n, err := fmt.Sscanf(yearStr, "%d", &year)
+	if err != nil || n != 1 {
+		return fmt.Errorf("invalid year format, expected integer")
+	}
+
+	if len(yearStr) <= 2 {
+		// 2-digit year: 70-99 = 1970-1999, 00-69 = 2000-2069
+		if year >= 0 && year <= 69 {
+			year += 2000
+		} else if year >= 70 && year <= 99 {
+			year += 1900
+		} else {
+			return fmt.Errorf("2-digit year must be 00-99")
+		}
+	} else if len(yearStr) == 4 {
+		// 4-digit year: 1901-2155
+		if year < 1901 || year > 2155 {
+			return fmt.Errorf("4-digit year must be between 1901-2155")
+		}
+	} else if len(yearStr) == 3 {
+		return fmt.Errorf("3-digit year not supported, use 2-digit (00-99) or 4-digit (1901-2155)")
+	} else {
+		return fmt.Errorf("year must be 1-2 digits (0-99) or 4 digits (1901-2155)")
+	}
+
+	return nil
+}
+
+// validateSetValue validates SET value (comma-separated list from allowed values)
+func validateSetValue(setValue string, allowedValues []string) error {
+	if setValue == "" {
+		return nil // Empty SET is valid
+	}
+
+	// Parse comma-separated values
+	values := strings.Split(setValue, ",")
+	seenValues := make(map[string]bool)
+
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue // Skip empty values
+		}
+
+		// Check for duplicates
+		if seenValues[value] {
+			return fmt.Errorf("duplicate value '%s' in SET", value)
+		}
+		seenValues[value] = true
+
+		// Check if value is in allowed values
+		found := false
+		for _, allowedValue := range allowedValues {
+			if value == allowedValue {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("invalid SET value '%s' (allowed: %v)", value, allowedValues)
+		}
+	}
+
+	return nil
 }
