@@ -1,7 +1,7 @@
 // package mist provides an in-memory MySQL-compatible database engine.
 //
 // Mist is a lightweight, thread-safe SQL database that supports basic SQL operations
-// including CREATE TABLE, INSERT, SELECT, UPDATE, DELETE, JOIN, and more.
+// including CREATE TABLE, INSERT, SELECT, UPDATE, DELETE, JOIN, nested transactions, and more.
 // It uses the TiDB parser for MySQL-compatible SQL parsing.
 //
 // Example usage:
@@ -28,6 +28,36 @@
 //
 //	// Print results
 //	mist.PrintResult(result)
+//
+//	// Use nested transactions and savepoints
+//	_, err = engine.Execute("START TRANSACTION")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("INSERT INTO users VALUES (2, 'Bob', 25)")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("SAVEPOINT sp1")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("BEGIN") // Nested transaction
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("INSERT INTO users VALUES (3, 'Charlie', 35)")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("ROLLBACK") // Rollback nested transaction
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	_, err = engine.Execute("COMMIT") // Commit outer transaction
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 //
 //	// Import SQL files
 //	results, err := engine.ImportSQLFile("schema.sql")

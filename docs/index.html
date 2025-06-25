@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist - Enhanced In-Memory MySQL Database with Full SQL Compatibility</title>
+    <title>Mist - Enhanced In-Memory MySQL Database with Nested Transactions & Full SQL Compatibility</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,12 +17,18 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar">
-        <div class="nav-container">            <div class="nav-brand">
+        <div class="nav-container">
+            <div class="nav-brand">
                 <img src="mist-icon.svg" alt="Mist" class="logo">
                 <span class="brand-text">Mist</span>
-            </div>                <div class="nav-links">
+            </div>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+            </button>
+            <div class="nav-links">
                 <a href="#features">Features</a>
-                <a href="#enhancements">Enhanced</a>
                 <a href="#installation">Installation</a>
                 <a href="#usage">Usage</a>
                 <a href="#examples">Examples</a>
@@ -30,6 +36,9 @@
             </div>
         </div>
     </nav>
+
+    <!-- Mobile Navigation Backdrop -->
+    <div class="nav-backdrop"></div>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -39,7 +48,7 @@
                     <span class="gradient-text">Enhanced In-Memory MySQL Database</span>
                 </h1><p class="hero-subtitle">
                     A lightweight, thread-safe SQL database engine with complete MySQL-compatible syntax.
-                    Built for speed, simplicity, and seamless integration with full referential integrity.
+                    Built for speed, simplicity, and seamless integration with nested transactions, savepoints, and full referential integrity.
                 </p>
                 <div class="hero-buttons">
                     <a href="#installation" class="btn btn-primary">Get Started</a>
@@ -74,6 +83,16 @@ engine.Execute(`CREATE TABLE users (
 // Insert data with new types
 engine.Execute("INSERT INTO users (email, name, birth_date, status) VALUES ('user@example.com', 'Alice', '1990-01-01', 'active')")
 
+// Nested transactions with savepoints
+engine.Execute("START TRANSACTION")
+engine.Execute("INSERT INTO users (email, name) VALUES ('bob@example.com', 'Bob')")
+
+engine.Execute("SAVEPOINT sp1")
+engine.Execute("UPDATE users SET status = 'inactive' WHERE name = 'Alice'")
+engine.Execute("ROLLBACK TO SAVEPOINT sp1") // Undo Alice update
+
+engine.Execute("COMMIT") // Bob remains, Alice unchanged
+
 // GROUP BY with aggregates
 result, _ := engine.Execute("SELECT status, COUNT(*) FROM users GROUP BY status")
 mist.PrintResult(result)</code></pre>
@@ -82,45 +101,6 @@ mist.PrintResult(result)</code></pre>
             </div>
         </div>
     </section>
-      <!-- Enhanced Features Highlight -->
-    <section id="enhancements" class="enhancements">
-        <div class="container">
-            <h2 class="section-title">🚀 Recently Enhanced Features</h2>
-            <div class="enhancements-grid">
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">📅</div>
-                    <h3>Native DATE & ENUM Types</h3>
-                    <p>Full support for DATE data type with flexible parsing and ENUM with value validation</p>
-                </div>
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">🔑</div>
-                    <h3>Foreign Key Constraints</h3>
-                    <p>Complete referential integrity with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions</p>
-                </div>
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">🔒</div>
-                    <h3>UNIQUE Constraints</h3>
-                    <p>Column and table-level UNIQUE constraints with automatic duplicate prevention</p>
-                </div>
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">⏰</div>
-                    <h3>Auto Timestamps</h3>
-                    <p>ON UPDATE CURRENT_TIMESTAMP support for automatic timestamp management</p>
-                </div>
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">📊</div>
-                    <h3>Enhanced GROUP BY</h3>
-                    <p>Full GROUP BY support with all aggregate functions and proper validation</p>
-                </div>
-                <div class="enhancement-item">
-                    <div class="enhancement-icon">✅</div>
-                    <h3>Full SQL Compatibility</h3>
-                    <p>Original MySQL schemas now work without "compatible" modifications</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
@@ -128,10 +108,35 @@ mist.PrintResult(result)</code></pre>
             <div class="features-grid">
                 <div class="feature-card">
                     <h3><span class="feature-icon">🚀</span> Lightning Fast</h3>
-                    <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead.</p>
-                </div>                <div class="feature-card">
+                    <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead, dependency and latency.</p>
+                </div>
+                <div class="feature-card">
                     <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
-                    <p>Built with TiDB parser for full MySQL syntax compatibility. Supports native ENUM, DATE, UNIQUE constraints, and more.</p>
+                    <p>Built with TiDB parser for full MySQL syntax compatibility. Original MySQL schemas now work without "compatible" modifications.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🔄</span> Nested Transactions</h3>
+                    <p>Full nested transaction support with savepoints, rollback isolation, proper state management, and ACID properties.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🔑</span> Foreign Key Constraints</h3>
+                    <p>Complete referential integrity with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions for data integrity.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">📅</span> Native DATE & ENUM Types</h3>
+                    <p>Full support for DATE data type with flexible parsing and ENUM with value validation for modern SQL compatibility.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">🔒</span> UNIQUE Constraints</h3>
+                    <p>Column and table-level UNIQUE constraints with automatic duplicate prevention and index optimization.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">⏰</span> Auto Timestamps</h3>
+                    <p>ON UPDATE CURRENT_TIMESTAMP support for automatic timestamp management and audit trails.</p>
+                </div>
+                <div class="feature-card">
+                    <h3><span class="feature-icon">📊</span> GROUP BY</h3>
+                    <p>Full GROUP BY support with all aggregate functions (COUNT/SUM/AVG/MIN/MAX) and proper validation.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🔢</span> Auto Increment</h3>
@@ -142,19 +147,8 @@ mist.PrintResult(result)</code></pre>
                     <p>Concurrent operations are handled safely, making it perfect for multi-threaded applications.</p>
                 </div>
                 <div class="feature-card">
-                    <h3><span class="feature-icon">📦</span> Zero Dependencies</h3>
-                    <p>Self-contained Go library with no external database server requirements.</p>
-                </div>                <div class="feature-card">
                     <h3><span class="feature-icon">🔍</span> Advanced Queries</h3>
-                    <p>Support for JOINs, subqueries, aggregates, GROUP BY, indexes, and complex WHERE clauses with full referential integrity.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🛡️</span> Foreign Keys</h3>
-                    <p>Complete foreign key constraint support with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions for data integrity.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📅</span> Rich Data Types</h3>
-                    <p>Native support for DATE, ENUM, UNIQUE constraints, and ON UPDATE CURRENT_TIMESTAMP for modern SQL compatibility.</p>
+                    <p>Support for JOINs, subqueries, aggregates, indexes, and complex WHERE clauses with full referential integrity.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">📊</span> Query Recording</h3>
@@ -163,10 +157,6 @@ mist.PrintResult(result)</code></pre>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🎯</span> Precise Tracking</h3>
                     <p>Record exact SQL queries as they're executed with immutable logs and zero performance overhead when disabled.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔐</span> Secure & Isolated</h3>
-                    <p>Recording sessions prevent external modification and ensure data integrity for audit trails.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🧪</span> Testing & Debug</h3>
@@ -209,6 +199,7 @@ go build .</code></pre>
                 <div class="tab-buttons">
                     <button class="tab-btn active" onclick="showTab('library')">Library Usage</button>
                     <button class="tab-btn" onclick="showTab('enhanced')">Enhanced Features</button>
+                    <button class="tab-btn" onclick="showTab('transactions')">Transactions</button>
                     <button class="tab-btn" onclick="showTab('recording-tab')">Query Recording</button>
                     <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
                     <button class="tab-btn" onclick="showTab('advanced')">Advanced Queries</button>
@@ -375,6 +366,94 @@ func main() {
                     </div>
                 </div>
 
+                <div id="transactions" class="tab-content">
+                    <div class="code-example">
+                        <pre><code class="language-go">package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/abbychau/mist"
+)
+
+func main() {
+    engine := mist.NewSQLEngine()
+
+    // Setup test table
+    engine.Execute(`CREATE TABLE accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL,
+        balance DECIMAL(10,2) NOT NULL DEFAULT 0.00
+    )`)
+
+    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Alice', 1000.00)")
+    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Bob', 500.00)")
+
+    fmt.Println("=== Basic Transactions ===")
+
+    // Basic transaction with commit
+    engine.Execute("START TRANSACTION")
+    engine.Execute("UPDATE accounts SET balance = balance - 100 WHERE name = 'Alice'")
+    engine.Execute("UPDATE accounts SET balance = balance + 100 WHERE name = 'Bob'")
+    engine.Execute("COMMIT") // Changes are permanent
+
+    fmt.Println("=== Nested Transactions ===")
+
+    // Nested transactions with selective rollback
+    engine.Execute("START TRANSACTION") // Level 1
+    engine.Execute("UPDATE accounts SET balance = balance - 50 WHERE name = 'Alice'")
+
+    engine.Execute("BEGIN") // Level 2 (nested)
+    engine.Execute("UPDATE accounts SET balance = balance + 200 WHERE name = 'Bob'")
+    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Charlie', 300.00)")
+    engine.Execute("ROLLBACK") // Rollback level 2 only (Charlie gone, Bob's +200 undone)
+
+    engine.Execute("COMMIT") // Commit level 1 (Alice's -50 remains)
+
+    fmt.Println("=== Savepoints ===")
+
+    // Advanced savepoint usage
+    engine.Execute("START TRANSACTION")
+    engine.Execute("UPDATE accounts SET balance = balance - 25 WHERE name = 'Alice'")
+
+    engine.Execute("SAVEPOINT sp1") // Create savepoint
+    engine.Execute("UPDATE accounts SET balance = balance + 75 WHERE name = 'Bob'")
+    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('David', 150.00)")
+
+    engine.Execute("SAVEPOINT sp2") // Another savepoint
+    engine.Execute("UPDATE accounts SET balance = balance * 1.1 WHERE name = 'Alice'") // 10% bonus
+
+    // Rollback to sp1 (undoes David insert, Bob +75, and Alice bonus)
+    engine.Execute("ROLLBACK TO SAVEPOINT sp1")
+
+    engine.Execute("RELEASE SAVEPOINT sp1") // Clean up savepoint
+    engine.Execute("COMMIT") // Commit remaining changes
+
+    // Query final state
+    result, _ := engine.Execute("SELECT name, balance FROM accounts ORDER BY name")
+    fmt.Println("\nFinal account balances:")
+    mist.PrintResult(result)
+
+    fmt.Println("\n=== Transaction Error Handling ===")
+
+    // Demonstrate transaction isolation
+    engine.Execute("START TRANSACTION")
+    engine.Execute("UPDATE accounts SET balance = 999999 WHERE name = 'Alice'")
+
+    // In a real scenario, you might check business rules here
+    // and rollback if they fail
+    engine.Execute("ROLLBACK") // Undo the unrealistic balance
+
+    fmt.Println("✅ Transaction features:")
+    fmt.Println("  🔄 Nested transactions with independent rollback")
+    fmt.Println("  📍 Named savepoints for fine-grained control")
+    fmt.Println("  🔒 Full ACID properties within memory scope")
+    fmt.Println("  🛡️ Automatic state restoration on rollback")
+    fmt.Println("  🎯 Thread-safe transaction management")
+}</code></pre>
+                    </div>
+                </div>
+
                 <div id="recording-tab" class="tab-content">
                     <div class="code-example">
                         <pre><code class="language-go">package main
@@ -526,7 +605,25 @@ VALUES (1, 1, '2024-01-15', 75000.00);
 
 -- CASCADE DELETE: Deleting a user cascades to employee records
 -- SET NULL: Deleting a department sets employee department_id to NULL
-DELETE FROM users WHERE id = 1; -- Cascades to employees table</code></pre>
+DELETE FROM users WHERE id = 1; -- Cascades to employees table
+
+-- Advanced Transaction Control
+START TRANSACTION;
+  INSERT INTO users (email, username, full_name) VALUES ('manager@corp.com', 'manager1', 'Jane Manager');
+
+  SAVEPOINT before_dept_changes;
+    INSERT INTO departments (name, manager_id) VALUES ('Engineering', LAST_INSERT_ID());
+
+    BEGIN; -- Nested transaction
+      INSERT INTO employees (user_id, department_id, hire_date, salary) VALUES (2, 1, '2024-01-01', 120000);
+      UPDATE employees SET salary = salary * 1.1 WHERE department_id = 1; -- 10% raise
+    ROLLBACK; -- Rollback nested transaction (no raises applied)
+
+  -- Keep department but rollback to before department changes if needed
+  -- ROLLBACK TO SAVEPOINT before_dept_changes;
+
+  RELEASE SAVEPOINT before_dept_changes;
+COMMIT; -- Commit all remaining changes</code></pre>
                     </div>
                 </div>
             </div>
@@ -559,6 +656,19 @@ DELETE FROM users WHERE id = 1; -- Cascades to employees table</code></pre>
                         <li>UNIQUE constraint checking</li>
                         <li>Complex WHERE conditions</li>
                         <li>Multiple value inserts</li>
+                    </ul>
+                </div>
+                <div class="example-card">
+                    <h3>Transaction Control</h3>
+                    <ul>
+                        <li>START TRANSACTION / BEGIN</li>
+                        <li>COMMIT / ROLLBACK</li>
+                        <li>Nested transactions (unlimited depth)</li>
+                        <li>SAVEPOINT creation & management</li>
+                        <li>ROLLBACK TO SAVEPOINT</li>
+                        <li>RELEASE SAVEPOINT</li>
+                        <li>ACID properties & isolation</li>
+                        <li>Thread-safe transaction state</li>
                     </ul>
                 </div>
                 <div class="example-card">

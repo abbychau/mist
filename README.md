@@ -7,6 +7,7 @@ Mist is a lightweight, in-memory SQL database engine that supports MySQL-compati
 - **MySQL-compatible SQL syntax** using TiDB parser
 - **In-memory storage** for fast operations
 - **Basic SQL operations**: CREATE TABLE, INSERT, SELECT, UPDATE, DELETE
+- **Transaction support**: START TRANSACTION, BEGIN, COMMIT, ROLLBACK with nested transactions and savepoints
 - **WHERE clauses** with comparison operators
 - **JOIN operations** between tables (including comma-separated table joins)
 - **Aggregate functions**: COUNT, SUM, AVG, MIN, MAX
@@ -504,6 +505,48 @@ DROP INDEX idx_age;
 SHOW INDEX FROM users;
 ```
 
+#### Transaction Support
+```sql
+-- Basic transactions
+START TRANSACTION;
+-- or alternatively
+BEGIN;
+
+-- Perform multiple operations
+INSERT INTO users VALUES (1, 'Alice', 30);
+UPDATE users SET age = 31 WHERE name = 'Alice';
+DELETE FROM users WHERE age < 25;
+
+-- Commit the transaction (make changes permanent)
+COMMIT;
+
+-- Or rollback to undo all changes since transaction started
+-- ROLLBACK;
+
+-- Nested transactions (supported)
+START TRANSACTION;
+  INSERT INTO users VALUES (2, 'Bob', 25);
+
+  BEGIN; -- Start nested transaction
+    INSERT INTO users VALUES (3, 'Charlie', 35);
+    UPDATE users SET age = 26 WHERE name = 'Bob';
+  ROLLBACK; -- Rollback nested transaction only
+
+COMMIT; -- Commit outer transaction (Bob remains, Charlie is gone)
+
+-- Savepoints within transactions
+START TRANSACTION;
+  INSERT INTO users VALUES (4, 'David', 40);
+
+  SAVEPOINT sp1; -- Create savepoint
+    INSERT INTO users VALUES (5, 'Eve', 28);
+    UPDATE users SET age = 41 WHERE name = 'David';
+  ROLLBACK TO SAVEPOINT sp1; -- Rollback to savepoint (Eve is gone, David age restored)
+
+  RELEASE SAVEPOINT sp1; -- Release savepoint
+COMMIT; -- Commit transaction
+```
+
 #### Utility Commands
 ```sql
 SHOW TABLES;
@@ -549,7 +592,6 @@ Mist consists of several key components:
 ## Limitations
 
 - **In-memory only**: Data is not persisted to disk
-- **No transactions**: Operations are not wrapped in transactions
 - **Limited SQL features**: Subset of MySQL functionality
 - **No user management**: No authentication or authorization
 - **Single-node**: No distributed or clustering support
@@ -573,3 +615,4 @@ go test -v -run TestCreateTable ./mist
 ## License
 
 MIT License
+

@@ -1021,3 +1021,281 @@ func TestRealDataSQLFiles(t *testing.T) {
 		t.Errorf("Expected status 'unprocessed', got %v", status)
 	}
 }
+
+func TestTransactions(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Create test table
+	_, err := engine.Execute("CREATE TABLE users (id INT, name VARCHAR(50), age INT)")
+	if err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
+
+	// Insert initial data
+	_, err = engine.Execute("INSERT INTO users VALUES (1, 'Alice', 30)")
+	if err != nil {
+		t.Fatalf("Failed to insert initial data: %v", err)
+	}
+
+	// Test transaction with COMMIT
+	result, err := engine.Execute("START TRANSACTION")
+	if err != nil {
+		t.Fatalf("Failed to start transaction: %v", err)
+	}
+	if result != "Transaction started" {
+		t.Errorf("Unexpected start transaction result: %v", result)
+	}
+
+	// Insert data in transaction
+	_, err = engine.Execute("INSERT INTO users VALUES (2, 'Bob', 25)")
+	if err != nil {
+		t.Fatalf("Failed to insert in transaction: %v", err)
+	}
+
+	// Commit transaction
+	result, err = engine.Execute("COMMIT")
+	if err != nil {
+		t.Fatalf("Failed to commit transaction: %v", err)
+	}
+	if result != "Transaction committed" {
+		t.Errorf("Unexpected commit result: %v", result)
+	}
+
+	// Verify data is committed
+	selectResult, err := engine.Execute("SELECT COUNT(*) FROM users")
+	if err != nil {
+		t.Fatalf("Failed to select after commit: %v", err)
+	}
+	sr := selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 || sr.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows after commit, got %v", sr.Rows)
+	}
+
+	// Test transaction with ROLLBACK
+	_, err = engine.Execute("BEGIN")
+	if err != nil {
+		t.Fatalf("Failed to begin transaction: %v", err)
+	}
+
+	// Insert and update data in transaction
+	_, err = engine.Execute("INSERT INTO users VALUES (3, 'Charlie', 35)")
+	if err != nil {
+		t.Fatalf("Failed to insert in second transaction: %v", err)
+	}
+
+	_, err = engine.Execute("UPDATE users SET age = 31 WHERE name = 'Alice'")
+	if err != nil {
+		t.Fatalf("Failed to update in transaction: %v", err)
+	}
+
+	// Rollback transaction
+	result, err = engine.Execute("ROLLBACK")
+	if err != nil {
+		t.Fatalf("Failed to rollback transaction: %v", err)
+	}
+	if result != "Transaction rolled back" {
+		t.Errorf("Unexpected rollback result: %v", result)
+	}
+
+	// Verify data is rolled back
+	selectResult, err = engine.Execute("SELECT COUNT(*) FROM users")
+	if err != nil {
+		t.Fatalf("Failed to select after rollback: %v", err)
+	}
+	sr = selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 || sr.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows after rollback, got %v", sr.Rows)
+	}
+
+	// Verify Alice's age is still 30
+	selectResult, err = engine.Execute("SELECT age FROM users WHERE name = 'Alice'")
+	if err != nil {
+		t.Fatalf("Failed to select Alice's age: %v", err)
+	}
+	sr = selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(sr.Rows))
+	} else {
+		age := sr.Rows[0][0]
+		// Age might be stored as different integer types, so check the value
+		switch v := age.(type) {
+		case int:
+			if v != 30 {
+				t.Errorf("Expected Alice's age to be 30, got %d", v)
+			}
+		case int64:
+			if v != 30 {
+				t.Errorf("Expected Alice's age to be 30, got %d", v)
+			}
+		default:
+			t.Errorf("Expected Alice's age to be 30 (int), got %v (type %T)", v, v)
+		}
+	}
+
+	// Test error cases
+	_, err = engine.Execute("COMMIT")
+	if err == nil {
+		t.Error("Expected error for commit without transaction")
+	}
+
+	_, err = engine.Execute("ROLLBACK")
+	if err == nil {
+		t.Error("Expected error for rollback without transaction")
+	}
+
+	// Test nested transactions (now supported)
+	_, err = engine.Execute("START TRANSACTION")
+	if err != nil {
+		t.Fatalf("Failed to start transaction for nested test: %v", err)
+	}
+
+	result, err = engine.Execute("BEGIN")
+	if err != nil {
+		t.Fatalf("Failed to start nested transaction: %v", err)
+	}
+	if !strings.Contains(result.(string), "Nested transaction started") {
+		t.Errorf("Expected nested transaction message, got: %v", result)
+	}
+
+	// Commit nested transaction
+	result, err = engine.Execute("COMMIT")
+	if err != nil {
+		t.Fatalf("Failed to commit nested transaction: %v", err)
+	}
+	if !strings.Contains(result.(string), "Nested transaction committed") {
+		t.Errorf("Expected nested commit message, got: %v", result)
+	}
+
+	// Commit outer transaction
+	_, err = engine.Execute("COMMIT")
+	if err != nil {
+		t.Fatalf("Failed to commit outer transaction: %v", err)
+	}
+}
+
+func TestNestedTransactionsAndSavepoints(t *testing.T) {
+	engine := NewSQLEngine()
+
+	// Create test table
+	_, err := engine.Execute("CREATE TABLE accounts (id INT, name VARCHAR(50), balance DECIMAL(10,2))")
+	if err != nil {
+		t.Fatalf("Failed to create table: %v", err)
+	}
+
+	// Insert initial data
+	_, err = engine.Execute("INSERT INTO accounts VALUES (1, 'Alice', 1000.00)")
+	if err != nil {
+		t.Fatalf("Failed to insert initial data: %v", err)
+	}
+
+	// Start outer transaction
+	result, err := engine.Execute("START TRANSACTION")
+	if err != nil {
+		t.Fatalf("Failed to start outer transaction: %v", err)
+	}
+	if result != "Transaction started" {
+		t.Errorf("Unexpected outer transaction result: %v", result)
+	}
+
+	// Insert data in outer transaction
+	_, err = engine.Execute("INSERT INTO accounts VALUES (2, 'Bob', 500.00)")
+	if err != nil {
+		t.Fatalf("Failed to insert in outer transaction: %v", err)
+	}
+
+	// Create savepoint
+	result, err = engine.Execute("SAVEPOINT sp1")
+	if err != nil {
+		t.Fatalf("Failed to create savepoint: %v", err)
+	}
+	if !strings.Contains(result.(string), "Savepoint sp1 created") {
+		t.Errorf("Unexpected savepoint result: %v", result)
+	}
+
+	// Insert more data after savepoint
+	_, err = engine.Execute("INSERT INTO accounts VALUES (3, 'Charlie', 750.00)")
+	if err != nil {
+		t.Fatalf("Failed to insert after savepoint: %v", err)
+	}
+
+	// Start nested transaction
+	result, err = engine.Execute("BEGIN")
+	if err != nil {
+		t.Fatalf("Failed to start nested transaction: %v", err)
+	}
+	if !strings.Contains(result.(string), "Nested transaction started") {
+		t.Errorf("Unexpected nested transaction result: %v", result)
+	}
+
+	// Insert data in nested transaction
+	_, err = engine.Execute("INSERT INTO accounts VALUES (4, 'David', 300.00)")
+	if err != nil {
+		t.Fatalf("Failed to insert in nested transaction: %v", err)
+	}
+
+	// Rollback nested transaction
+	result, err = engine.Execute("ROLLBACK")
+	if err != nil {
+		t.Fatalf("Failed to rollback nested transaction: %v", err)
+	}
+	if !strings.Contains(result.(string), "Nested transaction rolled back") {
+		t.Errorf("Unexpected nested rollback result: %v", result)
+	}
+
+	// Verify David's record was rolled back but others remain
+	selectResult, err := engine.Execute("SELECT COUNT(*) FROM accounts")
+	if err != nil {
+		t.Fatalf("Failed to select after nested rollback: %v", err)
+	}
+	sr := selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 || sr.Rows[0][0] != int64(3) {
+		t.Errorf("Expected 3 rows after nested rollback, got %v", sr.Rows)
+	}
+
+	// Rollback to savepoint (should remove Charlie but keep Alice and Bob)
+	result, err = engine.Execute("ROLLBACK TO SAVEPOINT sp1")
+	if err != nil {
+		t.Fatalf("Failed to rollback to savepoint: %v", err)
+	}
+	if !strings.Contains(result.(string), "Rolled back to savepoint sp1") {
+		t.Errorf("Unexpected savepoint rollback result: %v", result)
+	}
+
+	// Verify only Alice and Bob remain
+	selectResult, err = engine.Execute("SELECT COUNT(*) FROM accounts")
+	if err != nil {
+		t.Fatalf("Failed to select after savepoint rollback: %v", err)
+	}
+	sr = selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 || sr.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows after savepoint rollback, got %v", sr.Rows)
+	}
+
+	// Release savepoint
+	result, err = engine.Execute("RELEASE SAVEPOINT sp1")
+	if err != nil {
+		t.Fatalf("Failed to release savepoint: %v", err)
+	}
+	if !strings.Contains(result.(string), "Savepoint sp1 released") {
+		t.Errorf("Unexpected release savepoint result: %v", result)
+	}
+
+	// Commit outer transaction
+	result, err = engine.Execute("COMMIT")
+	if err != nil {
+		t.Fatalf("Failed to commit outer transaction: %v", err)
+	}
+	if result != "Transaction committed" {
+		t.Errorf("Unexpected commit result: %v", result)
+	}
+
+	// Verify final state
+	selectResult, err = engine.Execute("SELECT COUNT(*) FROM accounts")
+	if err != nil {
+		t.Fatalf("Failed to select final state: %v", err)
+	}
+	sr = selectResult.(*SelectResult)
+	if len(sr.Rows) != 1 || sr.Rows[0][0] != int64(2) {
+		t.Errorf("Expected 2 rows in final state, got %v", sr.Rows)
+	}
+}

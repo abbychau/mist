@@ -11,20 +11,57 @@ import (
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
+// TransactionData holds the state of an active transaction
+type TransactionData struct {
+	// Snapshot of the database state when transaction started
+	originalTables map[string]*Table
+	// Changes made during the transaction (for rollback)
+	changes []TransactionChange
+	// Nested transaction support
+	level      int                   // Transaction nesting level (0 = outermost)
+	parent     *TransactionData      // Parent transaction (nil for outermost)
+	savepoints map[string]*Savepoint // Named savepoints within this transaction
+}
+
+// Savepoint represents a savepoint within a transaction
+type Savepoint struct {
+	name           string
+	snapshotTables map[string]*Table
+	level          int // Transaction level when savepoint was created
+}
+
+// TransactionChange represents a change made during a transaction
+type TransactionChange struct {
+	Type      string // "INSERT", "UPDATE", "DELETE", "CREATE_TABLE", "ALTER_TABLE"
+	TableName string
+	// For rollback purposes
+	OldRow   *Row // for UPDATE and DELETE
+	NewRow   *Row // for INSERT and UPDATE
+	RowIndex int  // for UPDATE and DELETE
+}
+
 // SQLEngine represents the main SQL execution engine
 type SQLEngine struct {
 	database        *Database
 	recording       bool
 	recordedQueries []string
 	recordingMutex  sync.RWMutex
+	// Transaction support
+	inTransaction    bool
+	transactionData  *TransactionData
+	transactionLevel int // Current nesting level (0 = no transaction)
+	transactionMutex sync.RWMutex
 }
 
 // NewSQLEngine creates a new SQL engine with an empty database
 func NewSQLEngine() *SQLEngine {
 	return &SQLEngine{
-		database:        NewDatabase(),
-		recording:       false,
-		recordedQueries: make([]string, 0),
+		database:         NewDatabase(),
+		recording:        false,
+		recordedQueries:  make([]string, 0),
+		inTransaction:    false,
+		transactionData:  nil,
+		transactionLevel: 0,
 	}
 }
 
@@ -147,6 +184,21 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 			return nil, err
 		}
 		return "Index dropped successfully", nil
+
+	case *ast.BeginStmt:
+		return engine.executeBegin()
+
+	case *ast.CommitStmt:
+		return engine.executeCommit()
+
+	case *ast.RollbackStmt:
+		return engine.executeRollback(stmt)
+
+	case *ast.SavepointStmt:
+		return engine.executeSavepoint(stmt)
+
+	case *ast.ReleaseSavepointStmt:
+		return engine.executeReleaseSavepoint(stmt)
 
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", stmt)
@@ -347,4 +399,246 @@ func (engine *SQLEngine) executeWithProgress(sql string, progressCallback func(c
 	}
 
 	return results, nil
+}
+
+// executeBegin starts a new transaction (supports nesting)
+func (engine *SQLEngine) executeBegin() (interface{}, error) {
+	engine.transactionMutex.Lock()
+	defer engine.transactionMutex.Unlock()
+
+	// Increment transaction level
+	engine.transactionLevel++
+
+	if engine.transactionLevel == 1 {
+		// First level transaction - create initial snapshot
+		originalTables := make(map[string]*Table)
+		engine.database.mutex.RLock()
+		for name, table := range engine.database.Tables {
+			// Create a deep copy of the table
+			originalTables[name] = engine.copyTable(table)
+		}
+		engine.database.mutex.RUnlock()
+
+		engine.transactionData = &TransactionData{
+			originalTables: originalTables,
+			changes:        make([]TransactionChange, 0),
+			level:          0,
+			parent:         nil,
+			savepoints:     make(map[string]*Savepoint),
+		}
+		engine.inTransaction = true
+		return "Transaction started", nil
+	} else {
+		// Nested transaction - create a savepoint-like behavior
+		currentTables := make(map[string]*Table)
+		engine.database.mutex.RLock()
+		for name, table := range engine.database.Tables {
+			currentTables[name] = engine.copyTable(table)
+		}
+		engine.database.mutex.RUnlock()
+
+		// Create nested transaction data
+		nestedTransaction := &TransactionData{
+			originalTables: currentTables,
+			changes:        make([]TransactionChange, 0),
+			level:          engine.transactionLevel - 1,
+			parent:         engine.transactionData,
+			savepoints:     make(map[string]*Savepoint),
+		}
+
+		// Link to parent
+		engine.transactionData = nestedTransaction
+		return fmt.Sprintf("Nested transaction started (level %d)", engine.transactionLevel), nil
+	}
+}
+
+// executeCommit commits the current transaction (supports nesting)
+func (engine *SQLEngine) executeCommit() (interface{}, error) {
+	engine.transactionMutex.Lock()
+	defer engine.transactionMutex.Unlock()
+
+	if !engine.inTransaction || engine.transactionLevel == 0 {
+		return nil, fmt.Errorf("no transaction in progress")
+	}
+
+	if engine.transactionLevel == 1 {
+		// Outermost transaction - commit all changes
+		engine.inTransaction = false
+		engine.transactionData = nil
+		engine.transactionLevel = 0
+		return "Transaction committed", nil
+	} else {
+		// Nested transaction - merge changes to parent and pop level
+		if engine.transactionData.parent != nil {
+			// Move to parent transaction
+			engine.transactionData = engine.transactionData.parent
+		}
+		engine.transactionLevel--
+		return fmt.Sprintf("Nested transaction committed (level %d)", engine.transactionLevel), nil
+	}
+}
+
+// executeRollback rolls back the current transaction (supports nesting and savepoints)
+func (engine *SQLEngine) executeRollback(stmt *ast.RollbackStmt) (interface{}, error) {
+	engine.transactionMutex.Lock()
+	defer engine.transactionMutex.Unlock()
+
+	if !engine.inTransaction || engine.transactionLevel == 0 {
+		return nil, fmt.Errorf("no transaction in progress")
+	}
+
+	// Check if this is a rollback to savepoint
+	if stmt.SavepointName != "" {
+		return engine.rollbackToSavepoint(stmt.SavepointName)
+	}
+
+	if engine.transactionLevel == 1 {
+		// Outermost transaction - rollback to original state
+		engine.database.mutex.Lock()
+		engine.database.Tables = engine.transactionData.originalTables
+		engine.database.mutex.Unlock()
+
+		// Clear transaction state
+		engine.inTransaction = false
+		engine.transactionData = nil
+		engine.transactionLevel = 0
+		return "Transaction rolled back", nil
+	} else {
+		// Nested transaction - rollback to the state when this nested transaction started
+		engine.database.mutex.Lock()
+		engine.database.Tables = engine.transactionData.originalTables
+		engine.database.mutex.Unlock()
+
+		// Move to parent transaction
+		if engine.transactionData.parent != nil {
+			engine.transactionData = engine.transactionData.parent
+		}
+		engine.transactionLevel--
+		return fmt.Sprintf("Nested transaction rolled back (level %d)", engine.transactionLevel), nil
+	}
+}
+
+// copyTable creates a deep copy of a table for transaction snapshots
+func (engine *SQLEngine) copyTable(original *Table) *Table {
+	original.mutex.RLock()
+	defer original.mutex.RUnlock()
+
+	// Copy columns
+	columns := make([]Column, len(original.Columns))
+	copy(columns, original.Columns)
+
+	// Copy rows
+	rows := make([]Row, len(original.Rows))
+	for i, row := range original.Rows {
+		values := make([]interface{}, len(row.Values))
+		copy(values, row.Values)
+		rows[i] = Row{Values: values}
+	}
+
+	// Copy unique indexes
+	uniqueIndexes := make(map[string]map[interface{}]bool)
+	for colName, index := range original.UniqueIndexes {
+		uniqueIndexes[colName] = make(map[interface{}]bool)
+		for value, exists := range index {
+			uniqueIndexes[colName][value] = exists
+		}
+	}
+
+	// Copy foreign keys
+	foreignKeys := make([]ForeignKey, len(original.ForeignKeys))
+	copy(foreignKeys, original.ForeignKeys)
+
+	return &Table{
+		Name:            original.Name,
+		Columns:         columns,
+		Rows:            rows,
+		AutoIncrCounter: original.AutoIncrCounter,
+		UniqueIndexes:   uniqueIndexes,
+		ForeignKeys:     foreignKeys,
+	}
+}
+
+// executeSavepoint creates a savepoint within the current transaction
+func (engine *SQLEngine) executeSavepoint(stmt *ast.SavepointStmt) (interface{}, error) {
+	engine.transactionMutex.Lock()
+	defer engine.transactionMutex.Unlock()
+
+	if !engine.inTransaction || engine.transactionLevel == 0 {
+		return nil, fmt.Errorf("no transaction in progress")
+	}
+
+	savepointName := stmt.Name
+	if savepointName == "" {
+		return nil, fmt.Errorf("savepoint name cannot be empty")
+	}
+
+	// Create a snapshot of the current database state
+	currentTables := make(map[string]*Table)
+	engine.database.mutex.RLock()
+	for name, table := range engine.database.Tables {
+		currentTables[name] = engine.copyTable(table)
+	}
+	engine.database.mutex.RUnlock()
+
+	// Create savepoint
+	savepoint := &Savepoint{
+		name:           savepointName,
+		snapshotTables: currentTables,
+		level:          engine.transactionLevel,
+	}
+
+	// Add to current transaction's savepoints
+	engine.transactionData.savepoints[savepointName] = savepoint
+
+	return fmt.Sprintf("Savepoint %s created", savepointName), nil
+}
+
+// executeReleaseSavepoint releases a savepoint
+func (engine *SQLEngine) executeReleaseSavepoint(stmt *ast.ReleaseSavepointStmt) (interface{}, error) {
+	engine.transactionMutex.Lock()
+	defer engine.transactionMutex.Unlock()
+
+	if !engine.inTransaction || engine.transactionLevel == 0 {
+		return nil, fmt.Errorf("no transaction in progress")
+	}
+
+	savepointName := stmt.Name
+	if savepointName == "" {
+		return nil, fmt.Errorf("savepoint name cannot be empty")
+	}
+
+	// Find savepoint in current transaction or parent transactions
+	currentTxn := engine.transactionData
+	for currentTxn != nil {
+		if _, exists := currentTxn.savepoints[savepointName]; exists {
+			delete(currentTxn.savepoints, savepointName)
+			return fmt.Sprintf("Savepoint %s released", savepointName), nil
+		}
+		currentTxn = currentTxn.parent
+	}
+
+	return nil, fmt.Errorf("savepoint %s does not exist", savepointName)
+}
+
+// rollbackToSavepoint rolls back to a specific savepoint
+func (engine *SQLEngine) rollbackToSavepoint(savepointName string) (interface{}, error) {
+	if savepointName == "" {
+		return nil, fmt.Errorf("savepoint name cannot be empty")
+	}
+
+	// Find savepoint in current transaction or parent transactions
+	currentTxn := engine.transactionData
+	for currentTxn != nil {
+		if savepoint, exists := currentTxn.savepoints[savepointName]; exists {
+			// Restore database to savepoint state
+			engine.database.mutex.Lock()
+			engine.database.Tables = savepoint.snapshotTables
+			engine.database.mutex.Unlock()
+
+			return fmt.Sprintf("Rolled back to savepoint %s", savepointName), nil
+		}
+		currentTxn = currentTxn.parent
+	}
+
+	return nil, fmt.Errorf("savepoint %s does not exist", savepointName)
 }
