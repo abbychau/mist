@@ -844,7 +844,39 @@ body {
     line-height: 1.5;
 }
 
+/* Daemon Mode Section */
+.daemon {
+    padding: 6rem 0;
+    background: var(--surface);
+}
 
+.daemon-demo {
+    margin: 3rem 0;
+}
+
+.daemon-demo h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.daemon-features {
+    margin-top: 1.5rem;
+    list-style: none;
+    padding: 0;
+}
+
+.daemon-features li {
+    color: var(--text-secondary);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.daemon-features li:last-child {
+    border-bottom: none;
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {

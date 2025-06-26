@@ -636,14 +636,12 @@ COMMIT; -- Commit all remaining changes</code></pre>
     <section id="daemon" class="daemon">
         <div class="container">
             <h2 class="section-title">🚀 MySQL-Compatible Daemon Server</h2>
-            <p class="section-description">Run Mist as a MySQL-compatible server that listens on port 3306 (or any custom port). Perfect for testing, development, lightweight applications, and MySQL compatibility testing.</p>
             
-            <div class="daemon-content">
-                <div class="daemon-grid">
-                    <div class="daemon-card">
-                        <h3>Starting the Daemon</h3>
-                        <div class="code-block">
-                            <pre><code class="language-bash"># Start on default MySQL port (3306)
+            <div class="installation-options">
+                <div class="install-option">
+                    <h3>Starting the Daemon</h3>
+                    <div class="code-block">
+                        <pre><code class="language-bash"># Start on default MySQL port (3306)
 go run . -d
 # or
 go run . --daemon
@@ -658,13 +656,14 @@ go build -o mistdb .
 
 # Run in background for production
 nohup ./mistdb -d --port 3306 > mist.log 2>&1 &</code></pre>
-                        </div>
+                        <button class="copy-btn" onclick="copyToClipboard('go run . -d\ngo run . --daemon\ngo run . -d --port 3307')">📋</button>
                     </div>
+                </div>
 
-                    <div class="daemon-card">
-                        <h3>Connecting to the Daemon</h3>
-                        <div class="code-block">
-                            <pre><code class="language-bash"># Using telnet (most common for testing)
+                <div class="install-option">
+                    <h3>Connecting to the Daemon</h3>
+                    <div class="code-block">
+                        <pre><code class="language-bash"># Using telnet (most common for testing)
 telnet localhost 3306
 
 # Using netcat
@@ -672,34 +671,33 @@ nc localhost 3306
 
 # Any TCP client can connect
 # The daemon uses a simple text-based protocol</code></pre>
-                        </div>
-                        <div class="daemon-features">
-                            <h4>Key Features</h4>
-                            <ul>
-                                <li>✅ MySQL-Compatible port (3306)</li>
-                                <li>✅ Multiple concurrent connections</li>
-                                <li>✅ Real-time query performance timing</li>
-                                <li>✅ Graceful shutdown handling</li>
-                                <li>✅ Full SQL support with all Mist features</li>
-                                <li>✅ Connection tracking and logging</li>
-                            </ul>
-                        </div>
+                        <button class="copy-btn" onclick="copyToClipboard('telnet localhost 3306')">📋</button>
                     </div>
+                    <h4>Key Features</h4>
+                    <ul class="daemon-features">
+                        <li>✅ MySQL-Compatible port (3306)</li>
+                        <li>✅ Multiple concurrent connections</li>
+                        <li>✅ Real-time query performance timing</li>
+                        <li>✅ Graceful shutdown handling</li>
+                        <li>✅ Full SQL support with all Mist features</li>
+                        <li>✅ Connection tracking and logging</li>
+                    </ul>
                 </div>
+            </div>
 
-                <div class="daemon-demo">
-                    <h3>Interactive Session Example</h3>
-                    <div class="terminal">
-                        <div class="terminal-header">
-                            <div class="terminal-controls">
-                                <span class="control red"></span>
-                                <span class="control yellow"></span>
-                                <span class="control green"></span>
-                            </div>
-                            <span class="terminal-title">telnet localhost 3306</span>
+            <div class="daemon-demo">
+                <h3>Interactive Session Example</h3>
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-controls">
+                            <span class="control red"></span>
+                            <span class="control yellow"></span>
+                            <span class="control green"></span>
                         </div>
-                        <div class="terminal-body">
-                            <pre><code class="language-sql">$ telnet localhost 3306
+                        <span class="terminal-title">telnet localhost 3306</span>
+                    </div>
+                    <div class="terminal-body">
+                        <pre><code class="language-sql">$ telnet localhost 3306
 Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
@@ -756,58 +754,10 @@ Type 'quit' to exit
 mist> quit
 Bye!
 Connection closed by foreign host.</code></pre>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="daemon-integration">
-                    <h3>Automation & Integration</h3>
-                    <div class="integration-examples">
-                        <div class="integration-card">
-                            <h4>🤖 Automation Scripts</h4>
-                            <div class="code-block">
-                                <pre><code class="language-bash"># Simple query automation
-echo "SELECT COUNT(*) FROM users;" | nc localhost 3306
-
-# Batch operations
-cat << EOF | nc localhost 3306
-CREATE TABLE test (id INT, value VARCHAR(50));
-INSERT INTO test VALUES (1, 'hello'), (2, 'world');
-SELECT * FROM test;
-quit
-EOF</code></pre>
-                            </div>
-                        </div>
-
-                        <div class="integration-card">
-                            <h4>🔧 CI/CD Integration</h4>
-                            <div class="code-block">
-                                <pre><code class="language-bash"># Start daemon for testing
-./mistdb -d --port 3307 &
-DAEMON_PID=$!
-
-# Run your tests
-./run-integration-tests.sh
-
-# Stop daemon
-kill $DAEMON_PID</code></pre>
-                            </div>
-                        </div>
-
-                        <div class="integration-card">
-                            <h4>📊 Development & Testing</h4>
-                            <ul class="use-cases">
-                                <li><strong>Unit Testing:</strong> Lightweight MySQL replacement</li>
-                                <li><strong>Prototyping:</strong> Rapid development without setup</li>
-                                <li><strong>CI/CD Pipelines:</strong> Zero-dependency testing</li>
-                                <li><strong>MySQL Compatibility:</strong> Validate SQL queries</li>
-                                <li><strong>Development:</strong> Local testing environment</li>
-                                <li><strong>Automation:</strong> Scriptable database operations</li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
             </div>
+
         </div>
     </section>
 
