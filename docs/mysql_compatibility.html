@@ -266,59 +266,76 @@
                     <tr>
                         <th>Feature</th>
                         <th>Status</th>
-                        <th>Notes</th>
+                        <th>Supported Syntax</th>
+                        <th>Limitations</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>Basic SELECT</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Column selection, wildcards (*)</td>
+                        <td><span class="status-supported">✅ Basic</span></td>
+                        <td>Column names, wildcards (*), aliases</td>
+                        <td>No expressions, functions, or calculations in SELECT clause</td>
                     </tr>
                     <tr>
                         <td>WHERE clause</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Comparison and logical operators</td>
+                        <td><span class="status-supported">✅ Enhanced</span></td>
+                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN</td>
+                        <td>No LIKE, EXISTS, functions</td>
                     </tr>
                     <tr>
                         <td>JOIN operations</td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>INNER, LEFT, RIGHT, CROSS joins</td>
+                        <td>INNER, LEFT, RIGHT, CROSS joins with ON conditions</td>
+                        <td>ON conditions limited to basic comparisons</td>
                     </tr>
                     <tr>
                         <td>Subqueries in FROM</td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>Virtual table creation</td>
+                        <td>Virtual table creation from SELECT statements</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>Scalar subqueries</td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>—</td>
+                        <td>Cannot use subqueries in SELECT clause or WHERE conditions</td>
                     </tr>
                     <tr>
                         <td>LIMIT clause</td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>LIMIT count and LIMIT offset, count</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>GROUP BY</td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>Works with aggregate functions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>ORDER BY</td>
                         <td><span class="status-partial">⚠️ Basic</span></td>
-                        <td>Basic implementation, may vary</td>
+                        <td>Basic column ordering</td>
+                        <td>Limited implementation, may vary</td>
                     </tr>
                     <tr>
                         <td>HAVING</td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>Complete support with aggregate conditions</td>
+                        <td>Aggregate function conditions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>UNION</td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>Complete UNION and UNION ALL support with proper duplicate handling</td>
+                        <td>UNION and UNION ALL with duplicate handling</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>Window functions</td>
                         <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not implemented</td>
+                        <td>—</td>
+                        <td>ROW_NUMBER(), RANK(), etc. not implemented</td>
                     </tr>
                 </tbody>
             </table>
@@ -459,7 +476,8 @@
                     <tr>
                         <th>Function</th>
                         <th>Status</th>
-                        <th>Notes</th>
+                        <th>Supported Syntax</th>
+                        <th>Limitations</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -467,21 +485,69 @@
                         <td><code>COUNT(*), COUNT(column)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>Count all rows or non-null values</td>
+                        <td>Only in SELECT clause with GROUP BY</td>
                     </tr>
                     <tr>
                         <td><code>COUNT(DISTINCT column)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>Count unique values</td>
+                        <td>Only in SELECT clause with GROUP BY</td>
                     </tr>
                     <tr>
                         <td><code>SUM(column), AVG(column)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>Numeric columns only</td>
+                        <td>Only in SELECT clause with GROUP BY</td>
                     </tr>
                     <tr>
                         <td><code>MIN(column), MAX(column)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>Any comparable type</td>
+                        <td>Only in SELECT clause with GROUP BY</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Built-in Functions</h3>
+            <table class="compatibility-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Functions</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>String Functions</td>
+                        <td><code>CONCAT(), SUBSTRING(), LENGTH(), UPPER(), LOWER(), TRIM()</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>Cannot use in SELECT or WHERE clauses</td>
+                    </tr>
+                    <tr>
+                        <td>Date/Time Functions</td>
+                        <td><code>NOW(), CURDATE(), YEAR(), MONTH(), DAY(), DATE_FORMAT()</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>Cannot use in SELECT or WHERE clauses</td>
+                    </tr>
+                    <tr>
+                        <td>Math Functions</td>
+                        <td><code>ABS(), ROUND(), CEILING(), FLOOR(), MOD(), POWER()</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>Cannot use in SELECT or WHERE clauses</td>
+                    </tr>
+                    <tr>
+                        <td>Conditional Functions</td>
+                        <td><code>IF(), CASE...WHEN, COALESCE(), IFNULL(), NULLIF()</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>Cannot use in SELECT or WHERE clauses</td>
+                    </tr>
+                    <tr>
+                        <td>Type Conversion</td>
+                        <td><code>CAST(), CONVERT()</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>Automatic type coercion only</td>
                     </tr>
                 </tbody>
             </table>
@@ -492,6 +558,7 @@
                     <tr>
                         <th>Function</th>
                         <th>Status</th>
+                        <th>Supported Context</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
@@ -499,50 +566,92 @@
                     <tr>
                         <td><code>VALUES(column)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>In ON DUPLICATE KEY UPDATE expressions</td>
+                        <td>ON DUPLICATE KEY UPDATE expressions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td><code>CURRENT_TIMESTAMP</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>As DEFAULT value and in expressions</td>
+                        <td>DEFAULT values in CREATE/ALTER TABLE</td>
+                        <td>Not available in SELECT or WHERE</td>
                     </tr>
                 </tbody>
             </table>
 
-            <h3>Operators</h3>
+            <h3>Operators and Expressions</h3>
             <table class="compatibility-table">
                 <thead>
                     <tr>
                         <th>Type</th>
                         <th>Operators</th>
                         <th>Status</th>
-                        <th>Context</th>
+                        <th>Supported Context</th>
+                        <th>Limitations</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>Arithmetic</td>
-                        <td><code>+, -, *, /</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>UPDATE expressions</td>
+                        <td><code>+, -, *, /, %</code></td>
+                        <td><span class="status-partial">⚠️ Limited</span></td>
+                        <td>UPDATE SET expressions only</td>
+                        <td>Cannot use in SELECT or WHERE clauses</td>
                     </tr>
                     <tr>
                         <td>Comparison</td>
-                        <td><code>=, !=, <, <=, >, >=</code></td>
+                        <td><code>=, !=, &lt;, &lt;=, &gt;, &gt;=</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN conditions</td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>Logical</td>
                         <td><code>AND, OR</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
                         <td>WHERE clauses</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>Logical</td>
                         <td><code>NOT</code></td>
-                        <td><span class="status-partial">⚠️ Limited</span></td>
-                        <td>Limited support</td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>—</td>
+                        <td>Not implemented</td>
+                    </tr>
+                    <tr>
+                        <td>Pattern Matching</td>
+                        <td><code>LIKE, NOT LIKE</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>—</td>
+                        <td>No wildcard pattern matching</td>
+                    </tr>
+                    <tr>
+                        <td>Set Operations</td>
+                        <td><code>IN, NOT IN</code></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>Range</td>
+                        <td><code>BETWEEN ... AND ..., NOT BETWEEN</code></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>NULL Testing</td>
+                        <td><code>IS NULL, IS NOT NULL</code></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>Subquery</td>
+                        <td><code>EXISTS, NOT EXISTS</code></td>
+                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td>—</td>
+                        <td>No subquery existence testing</td>
                     </tr>
                 </tbody>
             </table>
@@ -705,15 +814,101 @@
 
         <!-- Limitations Section -->
         <div class="compatibility-section">
-            <h2>Limitations and Considerations</h2>
+            <h2>Syntax Limitations and Considerations</h2>
             
-            <h3>General Limitations</h3>
+            <h3>Expression Limitations</h3>
+            <table class="compatibility-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Status</th>
+                        <th>What Works</th>
+                        <th>What Doesn't Work</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SELECT Expressions</td>
+                        <td><span class="status-partial">⚠️ Basic</span></td>
+                        <td>Column names, aliases, aggregates</td>
+                        <td>Functions, calculations, literals, CASE expressions</td>
+                    </tr>
+                    <tr>
+                        <td>WHERE Expressions</td>
+                        <td><span class="status-supported">✅ Enhanced</span></td>
+                        <td>Comparisons, AND/OR logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN</td>
+                        <td>LIKE patterns, functions, subqueries</td>
+                    </tr>
+                    <tr>
+                        <td>JOIN Conditions</td>
+                        <td><span class="status-supported">✅ Enhanced</span></td>
+                        <td>Comparisons, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN</td>
+                        <td>LIKE patterns, functions, subqueries</td>
+                    </tr>
+                    <tr>
+                        <td>ORDER BY</td>
+                        <td><span class="status-partial">⚠️ Basic</span></td>
+                        <td>Column names</td>
+                        <td>Expressions, functions, multiple criteria</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Common MySQL Features Not Supported</h3>
+            <div style="margin: 1rem 0;">
+                <h4 style="color: var(--text-primary);">❌ Functions in SELECT</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>SELECT UPPER(name) FROM users</code> ❌</li>
+                    <li><code>SELECT CONCAT(first_name, ' ', last_name) AS full_name FROM users</code> ❌</li>
+                    <li><code>SELECT IF(age >= 18, 'Adult', 'Minor') FROM users</code> ❌</li>
+                    <li><code>SELECT NOW(), CURRENT_DATE()</code> ❌</li>
+                </ul>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <h4 style="color: var(--text-primary);">❌ Calculated Columns</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>SELECT price * quantity AS total FROM orders</code> ❌</li>
+                    <li><code>SELECT age + 1 AS next_year FROM users</code> ❌</li>
+                    <li><code>SELECT salary / 12 AS monthly_salary FROM employees</code> ❌</li>
+                </ul>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <h4 style="color: var(--text-primary);">✅ Enhanced WHERE Conditions</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>WHERE age BETWEEN 18 AND 65</code> ✅</li>
+                    <li><code>WHERE department IN ('Sales', 'Marketing')</code> ✅</li>
+                    <li><code>WHERE salary IS NOT NULL</code> ✅</li>
+                    <li><code>WHERE price NOT BETWEEN 10 AND 20</code> ✅</li>
+                    <li><code>WHERE category NOT IN ('Legacy', 'Discontinued')</code> ✅</li>
+                </ul>
+                
+                <h4 style="color: var(--text-primary);">❌ Still Not Supported WHERE Conditions</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>WHERE name LIKE 'John%'</code> ❌</li>
+                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ❌</li>
+                </ul>
+            </div>
+
+            <div style="margin: 1rem 0;">
+                <h4 style="color: var(--text-primary);">❌ Subqueries in SELECT</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>SELECT (SELECT MAX(salary) FROM employees) AS max_salary</code> ❌</li>
+                    <li><code>SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ❌</li>
+                </ul>
+            </div>
+
+            <h3>General Database Limitations</h3>
             <ul style="color: var(--text-secondary); line-height: 1.6;">
                 <li><strong>In-memory only</strong> - No persistent storage</li>
                 <li><strong>Single database</strong> - No multi-database support</li>
                 <li><strong>No user management</strong> - No authentication or authorization</li>
                 <li><strong>Limited concurrency</strong> - Thread-safe but no advanced locking</li>
                 <li><strong>Memory usage</strong> - All data held in RAM</li>
+                <li><strong>No stored procedures</strong> - Application logic only</li>
+                <li><strong>No triggers</strong> - No event-driven logic</li>
+                <li><strong>No views</strong> - Physical tables only</li>
             </ul>
 
             <h3>Migration from MySQL</h3>
@@ -721,19 +916,22 @@
                 <h4 style="color: var(--text-primary);">✅ Supported Migrations</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
                     <li>Basic table structures with standard data types</li>
-                    <li>Simple CRUD operations</li>
+                    <li>Simple CRUD operations with basic WHERE conditions</li>
                     <li>Basic relationships with foreign keys</li>
-                    <li>Simple reporting queries with aggregates</li>
+                    <li>Simple reporting queries with aggregates and GROUP BY</li>
+                    <li>Basic JOINs with equality conditions</li>
+                    <li>UNION operations for combining results</li>
                 </ul>
             </div>
 
             <div style="margin: 1rem 0;">
                 <h4 style="color: var(--text-primary);">⚠️ Manual Adjustments Needed</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li>Remove unsupported data types (JSON, spatial, etc.)</li>
-                    <li>Simplify complex queries (remove UNION, window functions)</li>
-                    <li>Replace stored procedures with application logic</li>
-                    <li>Remove user management and permissions</li>
+                    <li>Replace function calls in SELECT with application logic</li>
+                    <li>Convert calculated columns to application computations</li>
+                    <li>Replace LIKE patterns with exact matches or application filtering</li>
+                    <li>Replace subqueries with separate queries and application logic</li>
+                    <li>Remove stored procedures, triggers, and views</li>
                     <li>Add explicit transactions where needed</li>
                 </ul>
             </div>

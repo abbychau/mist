@@ -335,6 +335,31 @@ func filterJoinedRows(whereExpr ast.ExprNode, joinResult *JoinResult) ([][]inter
 func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, row []interface{}) (bool, error) {
 	switch e := expr.(type) {
 	case *ast.BinaryOperationExpr:
+		// Handle logical operators differently - they need boolean evaluation
+		switch e.Op {
+		case opcode.LogicAnd:
+			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, joinResult, row)
+			if err != nil {
+				return false, err
+			}
+			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, joinResult, row)
+			if err != nil {
+				return false, err
+			}
+			return leftResult && rightResult, nil
+		case opcode.LogicOr:
+			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, joinResult, row)
+			if err != nil {
+				return false, err
+			}
+			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, joinResult, row)
+			if err != nil {
+				return false, err
+			}
+			return leftResult || rightResult, nil
+		}
+		
+		// For comparison operators, evaluate as values
 		leftVal, err := evaluateExpressionOnJoinResult(e.L, joinResult, row)
 		if err != nil {
 			return false, err
@@ -358,14 +383,6 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 			return compareValues(leftVal, rightVal) > 0, nil
 		case opcode.GE:
 			return compareValues(leftVal, rightVal) >= 0, nil
-		case opcode.LogicAnd:
-			leftBool := isTruthy(leftVal)
-			rightBool := isTruthy(rightVal)
-			return leftBool && rightBool, nil
-		case opcode.LogicOr:
-			leftBool := isTruthy(leftVal)
-			rightBool := isTruthy(rightVal)
-			return leftBool || rightBool, nil
 		default:
 			return false, fmt.Errorf("unsupported binary operator in WHERE clause: %v", e.Op)
 		}
@@ -381,6 +398,19 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 	case ast.ValueExpr:
 		val := e.GetValue()
 		return isTruthy(val), nil
+		
+	case *ast.IsNullExpr:
+		return evaluateIsNullExpressionOnJoinResult(e, joinResult, row)
+		
+	case *ast.BetweenExpr:
+		return evaluateBetweenExpressionOnJoinResult(e, joinResult, row)
+		
+	case *ast.PatternInExpr:
+		return evaluateInExpressionOnJoinResult(e, joinResult, row)
+		
+	case *ast.ParenthesesExpr:
+		// Handle parentheses by evaluating the inner expression
+		return evaluateWhereConditionOnJoinResult(e.Expr, joinResult, row)
 
 	default:
 		return false, fmt.Errorf("unsupported expression type in WHERE clause: %T", expr)
@@ -740,4 +770,85 @@ func applyLimitToJoinRows(rows [][]interface{}, limit *ast.Limit) [][]interface{
 	}
 
 	return rows[start:end]
+}
+
+// evaluateIsNullExpressionOnJoinResult evaluates IS NULL expressions on joined rows
+func evaluateIsNullExpressionOnJoinResult(expr *ast.IsNullExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the expression being tested for null
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	isNull := (value == nil)
+	
+	// Return based on whether it's IS NULL or IS NOT NULL
+	if expr.Not {
+		return !isNull, nil // IS NOT NULL
+	}
+	return isNull, nil // IS NULL
+}
+
+// evaluateBetweenExpressionOnJoinResult evaluates BETWEEN expressions on joined rows
+func evaluateBetweenExpressionOnJoinResult(expr *ast.BetweenExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the main expression
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the lower bound
+	leftValue, err := evaluateExpressionOnJoinResult(expr.Left, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the upper bound
+	rightValue, err := evaluateExpressionOnJoinResult(expr.Right, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Compare: value >= leftValue AND value <= rightValue
+	leftComparison := compareValues(value, leftValue)
+	rightComparison := compareValues(value, rightValue)
+	
+	isBetween := leftComparison >= 0 && rightComparison <= 0
+	
+	// Handle NOT BETWEEN
+	if expr.Not {
+		return !isBetween, nil
+	}
+	return isBetween, nil
+}
+
+// evaluateInExpressionOnJoinResult evaluates IN expressions on joined rows
+func evaluateInExpressionOnJoinResult(expr *ast.PatternInExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Check if value matches any of the values in the list
+	for _, listExpr := range expr.List {
+		listValue, err := evaluateExpressionOnJoinResult(listExpr, joinResult, row)
+		if err != nil {
+			return false, err
+		}
+		
+		if compareValues(value, listValue) == 0 {
+			// Found a match
+			if expr.Not {
+				return false, nil // NOT IN - match found, return false
+			}
+			return true, nil // IN - match found, return true
+		}
+	}
+	
+	// No match found
+	if expr.Not {
+		return true, nil // NOT IN - no match, return true
+	}
+	return false, nil // IN - no match, return false
 }

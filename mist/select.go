@@ -118,6 +118,15 @@ func evaluateWhereCondition(expr ast.ExprNode, table *Table, row Row) (bool, err
 		}
 		value := row.Values[colIndex]
 		return isTruthy(value), nil
+	case *ast.IsNullExpr:
+		return evaluateIsNullExpression(e, table, row)
+	case *ast.BetweenExpr:
+		return evaluateBetweenExpression(e, table, row)
+	case *ast.PatternInExpr:
+		return evaluateInExpression(e, table, row)
+	case *ast.ParenthesesExpr:
+		// Handle parentheses by evaluating the inner expression
+		return evaluateWhereCondition(e.Expr, table, row)
 	default:
 		return false, fmt.Errorf("unsupported WHERE expression type: %T", expr)
 	}
@@ -125,6 +134,32 @@ func evaluateWhereCondition(expr ast.ExprNode, table *Table, row Row) (bool, err
 
 // evaluateBinaryOperation evaluates binary operations like =, >, <, etc.
 func evaluateBinaryOperation(expr *ast.BinaryOperationExpr, table *Table, row Row) (bool, error) {
+	// Handle logical operators differently - they need boolean evaluation
+	switch expr.Op {
+	case opcode.LogicAnd:
+		leftResult, err := evaluateWhereCondition(expr.L, table, row)
+		if err != nil {
+			return false, err
+		}
+		rightResult, err := evaluateWhereCondition(expr.R, table, row)
+		if err != nil {
+			return false, err
+		}
+		return leftResult && rightResult, nil
+		
+	case opcode.LogicOr:
+		leftResult, err := evaluateWhereCondition(expr.L, table, row)
+		if err != nil {
+			return false, err
+		}
+		rightResult, err := evaluateWhereCondition(expr.R, table, row)
+		if err != nil {
+			return false, err
+		}
+		return leftResult || rightResult, nil
+	}
+	
+	// For comparison operators, evaluate as values
 	leftVal, err := evaluateExpressionInRow(expr.L, table, row)
 	if err != nil {
 		return false, err
@@ -148,13 +183,90 @@ func evaluateBinaryOperation(expr *ast.BinaryOperationExpr, table *Table, row Ro
 		return compareValues(leftVal, rightVal) > 0, nil
 	case opcode.GE:
 		return compareValues(leftVal, rightVal) >= 0, nil
-	case opcode.LogicAnd:
-		return isTruthy(leftVal) && isTruthy(rightVal), nil
-	case opcode.LogicOr:
-		return isTruthy(leftVal) || isTruthy(rightVal), nil
 	default:
 		return false, fmt.Errorf("unsupported binary operator: %v", expr.Op)
 	}
+}
+
+// evaluateIsNullExpression evaluates IS NULL and IS NOT NULL expressions
+func evaluateIsNullExpression(expr *ast.IsNullExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the expression being tested for null
+	value, err := evaluateExpressionInRow(expr.Expr, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	isNull := (value == nil)
+	
+	// Return based on whether it's IS NULL or IS NOT NULL
+	if expr.Not {
+		return !isNull, nil // IS NOT NULL
+	}
+	return isNull, nil // IS NULL
+}
+
+// evaluateBetweenExpression evaluates BETWEEN expressions
+func evaluateBetweenExpression(expr *ast.BetweenExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the main expression
+	value, err := evaluateExpressionInRow(expr.Expr, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the lower bound
+	leftValue, err := evaluateExpressionInRow(expr.Left, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the upper bound
+	rightValue, err := evaluateExpressionInRow(expr.Right, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Compare: value >= leftValue AND value <= rightValue
+	leftComparison := compareValues(value, leftValue)
+	rightComparison := compareValues(value, rightValue)
+	
+	isBetween := leftComparison >= 0 && rightComparison <= 0
+	
+	// Handle NOT BETWEEN
+	if expr.Not {
+		return !isBetween, nil
+	}
+	return isBetween, nil
+}
+
+// evaluateInExpression evaluates IN expressions
+func evaluateInExpression(expr *ast.PatternInExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionInRow(expr.Expr, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Check if value matches any of the values in the list
+	for _, listExpr := range expr.List {
+		listValue, err := evaluateExpressionInRow(listExpr, table, row)
+		if err != nil {
+			return false, err
+		}
+		
+		if compareValues(value, listValue) == 0 {
+			// Found a match
+			if expr.Not {
+				return false, nil // NOT IN - match found, return false
+			}
+			return true, nil // IN - match found, return true
+		}
+	}
+	
+	// No match found
+	if expr.Not {
+		return true, nil // NOT IN - no match, return true
+	}
+	return false, nil // IN - no match, return false
 }
 
 // evaluateExpressionInRow evaluates an expression in the context of a row
