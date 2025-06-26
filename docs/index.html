@@ -202,6 +202,7 @@ go build .</code></pre>
                     <button class="tab-btn" onclick="showTab('enhanced')">Enhanced Features</button>
                     <button class="tab-btn" onclick="showTab('transactions')">Transactions</button>
                     <button class="tab-btn" onclick="showTab('recording-tab')">Query Recording</button>
+                    <button class="tab-btn" onclick="showTab('daemon')">Daemon Mode</button>
                     <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
                     <button class="tab-btn" onclick="showTab('advanced')">Advanced Queries</button>
                 </div>
@@ -493,6 +494,128 @@ func main() {
     // Use for debugging, testing, or audit logs
     // Perfect for understanding query execution patterns
 }</code></pre>
+                    </div>
+                </div>
+
+                <div id="daemon" class="tab-content">
+                    <div class="code-example">
+                        <h3>🚀 MySQL-Compatible Daemon Server</h3>
+                        <p>Run Mist as a MySQL-compatible server that listens on port 3306 (or any custom port). Perfect for testing, development, and lightweight applications.</p>
+                        
+                        <h4>Starting the Daemon</h4>
+                        <pre><code class="language-bash"># Start on default MySQL port (3306)
+go run . -d
+# or
+go run . --daemon
+
+# Start on custom port
+go run . -d --port 3307
+go run . --daemon --port 8080
+
+# Build and run as standalone
+go build -o mistdb .
+./mistdb -d --port 3306
+
+# Run in background for production
+nohup ./mistdb -d --port 3306 > mist.log 2>&1 &</code></pre>
+
+                        <h4>Connecting to the Daemon</h4>
+                        <pre><code class="language-bash"># Using telnet (most common for testing)
+telnet localhost 3306
+
+# Using netcat
+nc localhost 3306
+
+# Any TCP client can connect
+# The daemon uses a simple text-based protocol</code></pre>
+
+                        <h4>Example Session</h4>
+                        <pre><code class="language-sql">$ telnet localhost 3306
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+Welcome to Mist MySQL-compatible database (Connection #1)
+Type 'help' for commands, 'quit' to exit
+
+mist> CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    price DECIMAL(10,2),
+    category ENUM('Electronics', 'Books', 'Clothing') DEFAULT 'Electronics',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+Table products created successfully
+Query OK (234.5µs)
+
+mist> INSERT INTO products (name, price, category) VALUES 
+    ('Laptop Pro', 999.99, 'Electronics'),
+    ('SQL Guide', 29.99, 'Books'),
+    ('Wireless Mouse', 49.99, 'Electronics');
+Insert successful
+Query OK (123.2µs)
+
+mist> SELECT category, COUNT(*) as count, AVG(price) as avg_price 
+      FROM products 
+      GROUP BY category 
+      ORDER BY avg_price DESC;
++-------------+-------+-----------+
+| category    | count | avg_price |
++-------------+-------+-----------+
+| Electronics | 2     | 524.99    |
+| Books       | 1     | 29.99     |
++-------------+-------+-----------+
+2 rows in set (89.3µs)
+
+mist> SELECT name FROM products 
+      WHERE price > (SELECT AVG(price) FROM products);
++-----------+
+| name      |
++-----------+
+| Laptop Pro|
++-----------+
+1 row in set (156.7µs)
+
+mist> help
+Available SQL commands:
+- CREATE TABLE, ALTER TABLE, DROP TABLE
+- INSERT, SELECT, UPDATE, DELETE  
+- START TRANSACTION, COMMIT, ROLLBACK
+- CREATE INDEX, DROP INDEX, SHOW INDEX
+- SHOW TABLES
+Type 'quit' to exit
+
+mist> quit
+Bye!
+Connection closed by foreign host.</code></pre>
+
+                        <h4>Daemon Features</h4>
+                        <ul class="feature-list">
+                            <li><strong>MySQL-Compatible:</strong> Runs on port 3306 by default</li>
+                            <li><strong>Multiple Connections:</strong> Supports concurrent clients</li>
+                            <li><strong>Full SQL Support:</strong> All Mist features available</li>
+                            <li><strong>Real-time Performance:</strong> Query timing displayed</li>
+                            <li><strong>Graceful Shutdown:</strong> SIGINT/SIGTERM handling</li>
+                            <li><strong>Connection Tracking:</strong> Each connection gets unique ID</li>
+                            <li><strong>Error Handling:</strong> Robust error reporting</li>
+                            <li><strong>Production Ready:</strong> Background execution support</li>
+                        </ul>
+
+                        <h4>Integration Examples</h4>
+                        <pre><code class="language-bash"># Simple automation
+echo "SELECT COUNT(*) FROM users;" | nc localhost 3306
+
+# Batch operations
+cat << EOF | nc localhost 3306
+CREATE TABLE test (id INT, value VARCHAR(50));
+INSERT INTO test VALUES (1, 'hello'), (2, 'world');
+SELECT * FROM test;
+quit
+EOF
+
+# Using with curl or scripts
+# Perfect for CI/CD, testing, and automation</code></pre>
+
+                        <p><strong>💡 Use Cases:</strong> Development testing, CI/CD pipelines, lightweight applications, prototyping, MySQL compatibility testing</p>
                     </div>
                 </div>
 

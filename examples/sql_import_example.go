@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/abbychau/mist/mist"
+	"github.com/abbychau/mist"
 )
 
 func main() {

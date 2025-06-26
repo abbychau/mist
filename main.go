@@ -1,18 +1,63 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 
-	"github.com/abbychau/mist/mist"
+	"github.com/abbychau/mist"
 )
 
 func main() {
-	// Create a new SQL engine
+	// Define command-line flags
+	var (
+		interactive = flag.Bool("i", false, "Run in interactive mode")
+		daemon      = flag.Bool("d", false, "Run as MySQL daemon server")
+		daemonMode  = flag.Bool("daemon", false, "Run as MySQL daemon server (alias for -d)")
+		port        = flag.Int("port", 3306, "Port for daemon mode (default: 3306)")
+		help        = flag.Bool("h", false, "Show help")
+		helpLong    = flag.Bool("help", false, "Show help")
+	)
+
+	flag.Parse()
+
+	// Show help
+	if *help || *helpLong {
+		showHelp()
+		return
+	}
+
+	// Handle legacy command line args (for backwards compatibility)
+	if len(os.Args) > 1 && !flag.Parsed() {
+		if os.Args[1] == "-i" {
+			*interactive = true
+		} else if os.Args[1] == "-d" || os.Args[1] == "--daemon" {
+			*daemon = true
+			// Check for port in second argument
+			if len(os.Args) > 2 {
+				if p, err := strconv.Atoi(os.Args[2]); err == nil {
+					*port = p
+				}
+			}
+		}
+	}
+
+	// Run daemon mode
+	if *daemon || *daemonMode {
+		log.Printf("Starting Mist MySQL daemon on port %d", *port)
+		if err := mist.RunDaemon(*port); err != nil {
+			log.Fatalf("Daemon failed: %v", err)
+		}
+		return
+	}
+
+	// Create a new SQL engine for non-daemon modes
 	engine := mist.NewSQLEngine()
 
-	// Check if user wants interactive mode
-	if len(os.Args) > 1 && os.Args[1] == "-i" {
+	// Run interactive mode
+	if *interactive {
 		mist.Interactive(engine)
 		return
 	}
@@ -22,6 +67,32 @@ func main() {
 
 	// Demo the recording functionality
 	runRecordingDemo(engine)
+}
+
+func showHelp() {
+	fmt.Println("Mist - MySQL-compatible in-memory database")
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  mist [options]")
+	fmt.Println()
+	fmt.Println("Options:")
+	fmt.Println("  -i, --interactive    Run in interactive SQL mode")
+	fmt.Println("  -d, --daemon         Run as MySQL daemon server")
+	fmt.Println("  --port PORT          Specify port for daemon mode (default: 3306)")
+	fmt.Println("  -h, --help           Show this help message")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  mist                 # Run demo")
+	fmt.Println("  mist -i              # Interactive mode")
+	fmt.Println("  mist -d              # Daemon mode on port 3306")
+	fmt.Println("  mist -d --port 3307  # Daemon mode on port 3307")
+	fmt.Println()
+	fmt.Println("Daemon mode:")
+	fmt.Println("  When running as a daemon, Mist acts like a MySQL server.")
+	fmt.Println("  Connect with any MySQL client:")
+	fmt.Println("    mysql -h localhost -P 3306")
+	fmt.Println("    mysql -h localhost -P 3306 -e \"SHOW TABLES\"")
+	fmt.Println()
 }
 
 func runDemo(engine *mist.SQLEngine) {

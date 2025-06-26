@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/abbychau/mist/mist"
+	"github.com/abbychau/mist"
 )
 
 func recordingDemo() {

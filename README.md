@@ -8,15 +8,17 @@ Mist is a lightweight, in-memory SQL database engine that supports MySQL-compati
 - **In-memory storage** for fast operations
 - **Basic SQL operations**: CREATE TABLE, INSERT, SELECT, UPDATE, DELETE
 - **Transaction support**: START TRANSACTION, BEGIN, COMMIT, ROLLBACK with nested transactions and savepoints
-- **WHERE clauses** with comparison operators
+- **Scalar subqueries**: Support for single-value subqueries in SELECT and WHERE clauses
+- **WHERE clauses** with comparison operators and pattern matching (LIKE, NOT LIKE)
 - **JOIN operations** between tables (including comma-separated table joins)
 - **Aggregate functions**: COUNT, SUM, AVG, MIN, MAX
 - **LIMIT clause** with offset support
-- **Subqueries** in FROM clause
+- **Subqueries** in FROM clause and EXISTS/NOT EXISTS conditions
 - **ALTER TABLE** operations (ADD/DROP/MODIFY columns)
 - **Index support** for query optimization
 - **Auto increment ID columns** for primary keys
 - **Interactive mode** for testing queries
+- **Daemon mode**: MySQL-compatible server that listens on port 3306
 - **Thread-safe operations**
 - **Library support** for embedding in Go applications
 - **Enhanced MySQL compatibility** with graceful handling of ENUM, FOREIGN KEY, and UNIQUE constraints
@@ -28,7 +30,8 @@ Mist is a lightweight, in-memory SQL database engine that supports MySQL-compati
 git clone <repository-url>
 cd mist
 go mod tidy
-go build .
+go build -o mistdb .
+# Note: Use -o mistdb to avoid naming conflict with the mist/ folder
 ```
 
 ### As a Library
@@ -148,7 +151,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/abbychau/mist/mist"
+    "github.com/abbychau/mist"
 )
 
 func main() {
@@ -240,7 +243,7 @@ import (
     "net/http"
     "log"
 
-    "github.com/abbychau/mist/mist"
+    "github.com/abbychau/mist"
 )
 
 type QueryRequest struct {
@@ -304,6 +307,168 @@ go run .
 Interactive mode:
 ```bash
 go run . -i
+```
+
+Daemon mode (MySQL-compatible server):
+```bash
+# Run on default port 3306
+go run . -d
+
+# Run on custom port
+go run . -d --port 3307
+
+# Show help
+go run . --help
+```
+
+### Daemon Mode
+
+Mist can run as a MySQL-compatible daemon server, allowing you to connect with standard MySQL clients or tools. The daemon uses a simplified text protocol that supports all Mist SQL features.
+
+#### Starting the Daemon
+
+The daemon can be started with several command-line options:
+
+```bash
+# Start on default MySQL port (3306)
+go run . -d
+# or
+go run . --daemon
+
+# Start on custom port
+go run . -d --port 3307
+go run . --daemon --port 8080
+
+# Show all available options
+go run . --help
+```
+
+**Command-line flags:**
+- `-d, --daemon`: Enable daemon mode
+- `--port`: Specify port number (default: 3306)
+- `-i`: Interactive mode (cannot be used with daemon mode)
+
+
+#### Protocol Details
+
+The daemon uses a **simplified text-based protocol**:
+
+1. **Input**: Each line sent to the server is treated as a SQL command
+2. **Output**: Results are formatted as readable tables with timing information
+3. **Termination**: Commands should end with semicolon (`;`) but it's optional
+4. **Error handling**: Invalid queries return error messages instead of crashing
+
+**Protocol Flow:**
+```
+Client connects -> Welcome message
+Client sends: CREATE TABLE test (id INT);
+Server responds: Table test created successfully
+                Query OK (123.4µs)
+                mist>
+
+Client sends: SELECT * FROM test;
+Server responds: Empty set (45.2µs)
+                mist>
+
+Client sends: quit
+Server responds: Bye!
+Connection closes
+```
+
+
+
+#### Production Usage
+
+For production-like usage, you can:
+
+```bash
+# Build the binary first
+go build -o mistdb .
+
+# Run daemon in background
+./mistdb -d --port 3306 &
+
+# Or run with nohup for persistent operation
+nohup ./mistdb -d --port 3306 > mist.log 2>&1 &
+
+# Stop daemon gracefully
+kill -TERM <pid>
+# or use Ctrl+C if running in foreground
+```
+
+#### Example Session
+
+```
+$ telnet localhost 3306
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+Welcome to Mist MySQL-compatible database (Connection #1)
+Type 'help' for commands, 'quit' to exit
+mist> CREATE TABLE products (id INT, name VARCHAR(50), price DECIMAL(10,2));
+Table products created successfully
+Query OK (234.5µs)
+
+mist> INSERT INTO products VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99);
+Insert successful
+Query OK (123.2µs)
+
+mist> SELECT * FROM products;
++----+--------+--------+
+| id | name   | price  |
++----+--------+--------+
+| 1  | Laptop | 999.99 |
+| 2  | Mouse  | 29.99  |
++----+--------+--------+
+2 rows in set (89.3µs)
+
+mist> SELECT name FROM products WHERE price > (SELECT AVG(price) FROM products);
++--------+
+| name   |
++--------+
+| Laptop |
++--------+
+1 row in set (156.7µs)
+
+mist> help
+Available SQL commands:
+- CREATE TABLE, ALTER TABLE, DROP TABLE
+- INSERT, SELECT, UPDATE, DELETE  
+- START TRANSACTION, COMMIT, ROLLBACK
+- CREATE INDEX, DROP INDEX, SHOW INDEX
+- SHOW TABLES
+Type 'quit' to exit
+
+mist> quit
+Bye!
+Connection closed by foreign host.
+```
+
+#### Integration Examples
+
+The daemon can be used with various tools and scripts:
+
+```bash
+# Simple automation script
+echo "SELECT COUNT(*) FROM users;" | nc localhost 3306
+
+# Batch operations
+cat << EOF | nc localhost 3306
+CREATE TABLE test (id INT, value VARCHAR(50));
+INSERT INTO test VALUES (1, 'hello'), (2, 'world');
+SELECT * FROM test;
+quit
+EOF
+
+# Using with expect scripts for automation
+expect << 'EOF'
+spawn telnet localhost 3306
+expect "mist>"
+send "CREATE TABLE automation (id INT);\r"
+expect "mist>"
+send "quit\r"
+expect eof
+EOF
 ```
 
 ### Library API Reference
@@ -373,7 +538,7 @@ package main
 import (
     "fmt"
     "log"
-    "github.com/abbychau/mist/mist"
+    "github.com/abbychau/mist"
 )
 
 func main() {

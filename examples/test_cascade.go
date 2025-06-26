@@ -6,7 +6,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/abbychau/mist/mist"
+	"github.com/abbychau/mist"
 )
 
 func main() {
