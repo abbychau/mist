@@ -120,6 +120,43 @@ func ExecuteSelect(db *Database, stmt *ast.SelectStmt) (*SelectResult, error) {
 	return result, nil
 }
 
+// evaluateWhereConditionWithDB evaluates a WHERE condition with database context for EXISTS
+func evaluateWhereConditionWithDB(expr ast.ExprNode, db *Database, table *Table, row Row) (bool, error) {
+	switch e := expr.(type) {
+	case *ast.BinaryOperationExpr:
+		return evaluateBinaryOperationWithDB(e, db, table, row)
+	case *ast.ColumnNameExpr:
+		// Column reference - treat as boolean
+		colIndex := table.GetColumnIndex(e.Name.Name.String())
+		if colIndex == -1 {
+			return false, fmt.Errorf("column %s does not exist", e.Name.Name.String())
+		}
+		value := row.Values[colIndex]
+		return isTruthy(value), nil
+	case *ast.IsNullExpr:
+		return evaluateIsNullExpression(e, table, row)
+	case *ast.BetweenExpr:
+		return evaluateBetweenExpression(e, table, row)
+	case *ast.PatternInExpr:
+		return evaluateInExpression(e, table, row)
+	case *ast.ParenthesesExpr:
+		// Handle parentheses by evaluating the inner expression
+		return evaluateWhereConditionWithDB(e.Expr, db, table, row)
+	case *ast.PatternLikeOrIlikeExpr:
+		return evaluateLikeExpression(e, table, row)
+	case *ast.ExistsSubqueryExpr:
+		return evaluateExistsExpression(e, db, table, row)
+	case *ast.UnaryOperationExpr:
+		// Handle logical NOT
+		if e.Op == opcode.Not {
+			return evaluateNotExpressionWithDB(e, db, table, row)
+		}
+		return false, fmt.Errorf("unsupported unary operator in WHERE: %v", e.Op)
+	default:
+		return false, fmt.Errorf("unsupported WHERE expression type: %T", expr)
+	}
+}
+
 // evaluateWhereCondition evaluates a WHERE condition against a row
 func evaluateWhereCondition(expr ast.ExprNode, table *Table, row Row) (bool, error) {
 	switch e := expr.(type) {
@@ -142,6 +179,17 @@ func evaluateWhereCondition(expr ast.ExprNode, table *Table, row Row) (bool, err
 	case *ast.ParenthesesExpr:
 		// Handle parentheses by evaluating the inner expression
 		return evaluateWhereCondition(e.Expr, table, row)
+	case *ast.PatternLikeOrIlikeExpr:
+		return evaluateLikeExpression(e, table, row)
+	case *ast.ExistsSubqueryExpr:
+		// Need access to database for EXISTS subqueries
+		return false, fmt.Errorf("EXISTS subqueries require database context - use ExecuteSelectWithDatabase")
+	case *ast.UnaryOperationExpr:
+		// Handle logical NOT
+		if e.Op == opcode.Not {
+			return evaluateNotExpression(e, table, row)
+		}
+		return false, fmt.Errorf("unsupported unary operator in WHERE: %v", e.Op)
 	default:
 		return false, fmt.Errorf("unsupported WHERE expression type: %T", expr)
 	}
@@ -540,7 +588,7 @@ func getRowsWithOptimization(db *Database, table *Table, whereExpr ast.ExprNode)
 	var filteredRows []Row
 
 	for _, row := range allRows {
-		match, err := evaluateWhereCondition(whereExpr, table, row)
+		match, err := evaluateWhereConditionWithDB(whereExpr, db, table, row)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating WHERE clause: %v", err)
 		}
@@ -810,4 +858,72 @@ func inferColumnNameFromExpression(expr ast.ExprNode) string {
 	default:
 		return "expr"
 	}
+}
+
+// evaluateBinaryOperationWithDB evaluates binary operations with database context
+func evaluateBinaryOperationWithDB(expr *ast.BinaryOperationExpr, db *Database, table *Table, row Row) (bool, error) {
+	// Handle logical operators differently - they need boolean evaluation
+	switch expr.Op {
+	case opcode.LogicAnd:
+		leftResult, err := evaluateWhereConditionWithDB(expr.L, db, table, row)
+		if err != nil {
+			return false, err
+		}
+		rightResult, err := evaluateWhereConditionWithDB(expr.R, db, table, row)
+		if err != nil {
+			return false, err
+		}
+		return leftResult && rightResult, nil
+		
+	case opcode.LogicOr:
+		leftResult, err := evaluateWhereConditionWithDB(expr.L, db, table, row)
+		if err != nil {
+			return false, err
+		}
+		rightResult, err := evaluateWhereConditionWithDB(expr.R, db, table, row)
+		if err != nil {
+			return false, err
+		}
+		return leftResult || rightResult, nil
+	}
+	
+	// For comparison operators, evaluate as values
+	leftVal, err := evaluateExpressionInRow(expr.L, table, row)
+	if err != nil {
+		return false, err
+	}
+
+	rightVal, err := evaluateExpressionInRow(expr.R, table, row)
+	if err != nil {
+		return false, err
+	}
+
+	switch expr.Op {
+	case opcode.EQ:
+		return compareValues(leftVal, rightVal) == 0, nil
+	case opcode.NE:
+		return compareValues(leftVal, rightVal) != 0, nil
+	case opcode.LT:
+		return compareValues(leftVal, rightVal) < 0, nil
+	case opcode.LE:
+		return compareValues(leftVal, rightVal) <= 0, nil
+	case opcode.GT:
+		return compareValues(leftVal, rightVal) > 0, nil
+	case opcode.GE:
+		return compareValues(leftVal, rightVal) >= 0, nil
+	default:
+		return false, fmt.Errorf("unsupported binary operator: %v", expr.Op)
+	}
+}
+
+// evaluateNotExpressionWithDB evaluates logical NOT with database context
+func evaluateNotExpressionWithDB(notExpr *ast.UnaryOperationExpr, db *Database, table *Table, row Row) (bool, error) {
+	// Evaluate the inner expression
+	result, err := evaluateWhereConditionWithDB(notExpr.V, db, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Return the logical negation
+	return !result, nil
 }

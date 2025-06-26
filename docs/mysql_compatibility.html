@@ -280,8 +280,8 @@
                     <tr>
                         <td>WHERE clause</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, functions, arithmetic expressions</td>
-                        <td>No LIKE, EXISTS patterns</td>
+                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, EXISTS, NOT EXISTS, functions, arithmetic expressions</td>
+                        <td>EXISTS limited to non-correlated subqueries</td>
                     </tr>
                     <tr>
                         <td>JOIN operations</td>
@@ -649,9 +649,9 @@
                     <tr>
                         <td>Subquery</td>
                         <td><code>EXISTS, NOT EXISTS</code></td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>—</td>
-                        <td>No subquery existence testing</td>
+                        <td><span class="status-partial">⚠️ Partial</span></td>
+                        <td>Non-correlated subqueries</td>
+                        <td>Correlated subqueries not yet supported</td>
                     </tr>
                 </tbody>
             </table>
@@ -884,19 +884,32 @@
                     <li><code>WHERE category NOT IN ('Legacy', 'Discontinued')</code> ✅</li>
                 </ul>
                 
+                <h4 style="color: var(--text-primary);">✅ Newly Supported Pattern Matching</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>WHERE name LIKE 'John%'</code> ✅</li>
+                    <li><code>WHERE name NOT LIKE 'Admin%'</code> ✅</li>
+                    <li><code>WHERE name LIKE 'J_hn'</code> ✅ (underscore wildcard)</li>
+                    <li><code>WHERE NOT (price > 100 AND category = 'Premium')</code> ✅</li>
+                </ul>
+                
+                <h4 style="color: var(--text-primary);">✅ Newly Supported Subqueries</h4>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><code>WHERE EXISTS (SELECT 1 FROM categories WHERE id = 1)</code> ✅</li>
+                    <li><code>WHERE NOT EXISTS (SELECT 1 FROM archived_users WHERE name = 'test')</code> ✅</li>
+                </ul>
+                
                 <h4 style="color: var(--text-primary);">❌ Still Not Supported WHERE Conditions</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE name LIKE 'John%'</code> ❌</li>
-                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ❌</li>
+                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ❌ (correlated subqueries)</li>
                 </ul>
             </div>
 
             <h3>Remaining Limitations</h3>
             <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">❌ Pattern Matching</h4>
+                <h4 style="color: var(--text-primary);">❌ Advanced Pattern Matching</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE name LIKE 'John%'</code> ❌</li>
                     <li><code>WHERE email REGEXP '.*@company\.com'</code> ❌</li>
+                    <li><code>WHERE name RLIKE '^[A-Z].*'</code> ❌</li>
                 </ul>
             </div>
 

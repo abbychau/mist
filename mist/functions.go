@@ -3,6 +3,7 @@ package mist
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -632,4 +633,242 @@ func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, joinResult *Join
 	}
 
 	return nil, nil
+}
+
+// Pattern Matching Functions
+
+// evaluateLikeExpression evaluates LIKE pattern matching
+func evaluateLikeExpression(likeExpr *ast.PatternLikeOrIlikeExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionInRow(likeExpr.Expr, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the pattern
+	pattern, err := evaluateExpressionInRow(likeExpr.Pattern, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Handle NULL values - LIKE with NULL returns NULL (false in boolean context)
+	if value == nil || pattern == nil {
+		return false, nil
+	}
+	
+	// Convert to strings
+	valueStr := fmt.Sprintf("%v", value)
+	patternStr := fmt.Sprintf("%v", pattern)
+	
+	// Convert SQL LIKE pattern to Go regex
+	regexPattern := convertLikePatternToRegex(patternStr)
+	
+	// Compile and match
+	matched, err := regexp.MatchString(regexPattern, valueStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid LIKE pattern: %v", err)
+	}
+	
+	// Handle NOT LIKE
+	if likeExpr.Not {
+		return !matched, nil
+	}
+	
+	return matched, nil
+}
+
+// evaluateLikeExpressionOnJoinResult evaluates LIKE in JOIN context
+func evaluateLikeExpressionOnJoinResult(likeExpr *ast.PatternLikeOrIlikeExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionOnJoinResult(likeExpr.Expr, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the pattern
+	pattern, err := evaluateExpressionOnJoinResult(likeExpr.Pattern, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Handle NULL values - LIKE with NULL returns NULL (false in boolean context)
+	if value == nil || pattern == nil {
+		return false, nil
+	}
+	
+	// Convert to strings
+	valueStr := fmt.Sprintf("%v", value)
+	patternStr := fmt.Sprintf("%v", pattern)
+	
+	// Convert SQL LIKE pattern to Go regex
+	regexPattern := convertLikePatternToRegex(patternStr)
+	
+	// Compile and match
+	matched, err := regexp.MatchString(regexPattern, valueStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid LIKE pattern: %v", err)
+	}
+	
+	// Handle NOT LIKE
+	if likeExpr.Not {
+		return !matched, nil
+	}
+	
+	return matched, nil
+}
+
+// convertLikePatternToRegex converts SQL LIKE pattern to Go regex pattern
+func convertLikePatternToRegex(likePattern string) string {
+	// First handle escaped wildcards (literal % and _ in the pattern)
+	// In SQL, \% matches literal %, \_ matches literal _
+	// Replace them with placeholders that don't contain wildcards
+	escaped := strings.ReplaceAll(likePattern, "\\%", "〈LITERAL-PERCENT〉")
+	escaped = strings.ReplaceAll(escaped, "\\_", "〈LITERAL-UNDERSCORE〉")
+	
+	// Replace SQL wildcards with special placeholders that won't be escaped
+	escaped = strings.ReplaceAll(escaped, "%", "〈WILDCARD-PERCENT〉")
+	escaped = strings.ReplaceAll(escaped, "_", "〈WILDCARD-UNDERSCORE〉")
+	
+	// Now escape all special regex characters
+	escaped = regexp.QuoteMeta(escaped)
+	
+	// Replace placeholders with actual regex patterns
+	escaped = strings.ReplaceAll(escaped, "〈WILDCARD-PERCENT〉", ".*")
+	escaped = strings.ReplaceAll(escaped, "〈WILDCARD-UNDERSCORE〉", ".")
+	
+	// Restore escaped wildcards as literal characters
+	escaped = strings.ReplaceAll(escaped, "〈LITERAL-PERCENT〉", "%")
+	escaped = strings.ReplaceAll(escaped, "〈LITERAL-UNDERSCORE〉", "_")
+	
+	// Anchor the pattern to match the entire string
+	return "^" + escaped + "$"
+}
+
+// Subquery Functions
+
+// evaluateExistsExpression evaluates EXISTS subquery
+func evaluateExistsExpression(existsExpr *ast.ExistsSubqueryExpr, db *Database, table *Table, row Row) (bool, error) {
+	// Execute the subquery
+	// Cast Sel to SubqueryExpr
+	subqueryExpr, ok := existsExpr.Sel.(*ast.SubqueryExpr)
+	if !ok {
+		return false, fmt.Errorf("EXISTS Sel must be a SubqueryExpr")
+	}
+	// Cast Query to SelectStmt
+	subquery, ok := subqueryExpr.Query.(*ast.SelectStmt)
+	if !ok {
+		return false, fmt.Errorf("EXISTS subquery must be a SELECT statement")
+	}
+	subqueryResult, err := executeSubqueryForExists(db, subquery, table, row)
+	if err != nil {
+		return false, fmt.Errorf("error executing EXISTS subquery: %v", err)
+	}
+	
+	// EXISTS returns true if subquery returns any rows
+	hasRows := len(subqueryResult.Rows) > 0
+	
+	// Handle NOT EXISTS
+	if existsExpr.Not {
+		return !hasRows, nil
+	}
+	
+	return hasRows, nil
+}
+
+// evaluateExistsExpressionOnJoinResult evaluates EXISTS in JOIN context
+func evaluateExistsExpressionOnJoinResult(existsExpr *ast.ExistsSubqueryExpr, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// For JOIN context, we need to create a virtual table context
+	// This is more complex as we need to simulate the current row context
+	virtualTable := createVirtualTableFromJoinResult(joinResult, row)
+	virtualRow := Row{Values: row}
+	
+	// Execute the subquery
+	// Cast Sel to SubqueryExpr
+	subqueryExpr, ok := existsExpr.Sel.(*ast.SubqueryExpr)
+	if !ok {
+		return false, fmt.Errorf("EXISTS Sel must be a SubqueryExpr")
+	}
+	// Cast Query to SelectStmt
+	subquery, ok := subqueryExpr.Query.(*ast.SelectStmt)
+	if !ok {
+		return false, fmt.Errorf("EXISTS subquery must be a SELECT statement")
+	}
+	subqueryResult, err := executeSubqueryForExists(db, subquery, virtualTable, virtualRow)
+	if err != nil {
+		return false, fmt.Errorf("error executing EXISTS subquery in JOIN: %v", err)
+	}
+	
+	// EXISTS returns true if subquery returns any rows
+	hasRows := len(subqueryResult.Rows) > 0
+	
+	// Handle NOT EXISTS
+	if existsExpr.Not {
+		return !hasRows, nil
+	}
+	
+	return hasRows, nil
+}
+
+// executeSubqueryForExists executes a subquery in the context of EXISTS
+func executeSubqueryForExists(db *Database, subquery *ast.SelectStmt, outerTable *Table, outerRow Row) (*SelectResult, error) {
+	// Create a new execution context that includes both the outer table context
+	// and access to all tables in the database
+	
+	// For now, we'll execute the subquery with access to the outer row context
+	// This is a simplified implementation - a full implementation would need
+	// to handle correlated subqueries properly by substituting outer references
+	
+	// Execute the subquery
+	result, err := ExecuteSelect(db, subquery)
+	if err != nil {
+		return nil, err
+	}
+	
+	return result, nil
+}
+
+// createVirtualTableFromJoinResult creates a virtual table context for JOIN EXISTS
+func createVirtualTableFromJoinResult(joinResult *JoinResult, row []interface{}) *Table {
+	// Create a virtual table that represents the current JOIN result row
+	virtualTable := &Table{
+		Name:    "virtual_join_context",
+		Columns: make([]Column, len(joinResult.Columns)),
+		Rows:    []Row{{Values: row}},
+	}
+	
+	// Create column definitions based on the JOIN result
+	for i, colName := range joinResult.Columns {
+		virtualTable.Columns[i] = Column{
+			Name: colName,
+			Type: TypeText, // Default to text type
+		}
+	}
+	
+	return virtualTable
+}
+
+// Logical NOT Functions
+
+// evaluateNotExpression evaluates logical NOT
+func evaluateNotExpression(notExpr *ast.UnaryOperationExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the inner expression
+	result, err := evaluateWhereCondition(notExpr.V, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Return the logical negation
+	return !result, nil
+}
+
+// evaluateNotExpressionOnJoinResult evaluates logical NOT in JOIN context
+func evaluateNotExpressionOnJoinResult(notExpr *ast.UnaryOperationExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the inner expression
+	result, err := evaluateWhereConditionOnJoinResult(notExpr.V, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Return the logical negation
+	return !result, nil
 }

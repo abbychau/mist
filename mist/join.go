@@ -411,6 +411,20 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 	case *ast.ParenthesesExpr:
 		// Handle parentheses by evaluating the inner expression
 		return evaluateWhereConditionOnJoinResult(e.Expr, joinResult, row)
+		
+	case *ast.PatternLikeOrIlikeExpr:
+		return evaluateLikeExpressionOnJoinResult(e, joinResult, row)
+		
+	case *ast.ExistsSubqueryExpr:
+		// Need access to database for EXISTS subqueries in JOIN context
+		return false, fmt.Errorf("EXISTS subqueries in JOIN context require database - not yet implemented")
+		
+	case *ast.UnaryOperationExpr:
+		// Handle logical NOT
+		if e.Op == opcode.Not {
+			return evaluateNotExpressionOnJoinResult(e, joinResult, row)
+		}
+		return false, fmt.Errorf("unsupported unary operator in WHERE clause: %v", e.Op)
 
 	default:
 		return false, fmt.Errorf("unsupported expression type in WHERE clause: %T", expr)
