@@ -175,13 +175,28 @@
                         <code>WHERE NOT EXISTS (SELECT * FROM...)</code>
                     </div>
                 </div>
+                
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">📊 Scalar Subqueries</h3>
+                    <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                        <li><strong>Single-value subqueries</strong> in SELECT and WHERE</li>
+                        <li>Aggregate function support</li>
+                        <li>Proper error handling for multiple rows/columns</li>
+                        <li>NULL handling for empty results</li>
+                    </ul>
+                    <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
+                        <code>SELECT (SELECT MAX(price) FROM products)</code><br>
+                        <code>WHERE dept_id = (SELECT id FROM departments WHERE...)</code>
+                    </div>
+                </div>
             </div>
             
             <div style="margin-top: 2rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 0.5rem; border: 1px solid rgba(59, 130, 246, 0.3);">
                 <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">💡 Migration Impact</h4>
                 <p style="color: var(--text-secondary); margin: 0;">
                     These enhancements significantly reduce the need for application-level workarounds when migrating from MySQL. 
-                    Pattern matching queries and logical operations now work natively, improving both performance and code simplicity.
+                    Pattern matching, logical operations, and subqueries now work natively, improving both performance and code simplicity.
+                    Scalar subqueries enable complex data retrieval patterns common in MySQL applications.
                 </p>
             </div>
         </div>
@@ -712,6 +727,13 @@
                         <td><span class="status-partial">⚠️ Partial</span></td>
                         <td>Non-correlated subqueries</td>
                         <td>Correlated subqueries not yet supported</td>
+                    </tr>
+                    <tr>
+                        <td>Scalar Subqueries</td>
+                        <td><code>(SELECT column FROM table WHERE ...)</code></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>SELECT and WHERE clauses, with aggregates</td>
+                        <td>Non-correlated only; proper NULL and error handling</td>
                     </tr>
                 </tbody>
             </table>

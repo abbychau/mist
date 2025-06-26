@@ -89,7 +89,7 @@ func ExecuteSelect(db *Database, stmt *ast.SelectStmt) (*SelectResult, error) {
 		if len(expressions) > 0 {
 			// Evaluate expressions for each column
 			for _, expr := range expressions {
-				value, err := evaluateExpressionInRow(expr, table, row)
+				value, err := evaluateExpressionInRowWithDB(expr, db, table, row)
 				if err != nil {
 					return nil, fmt.Errorf("error evaluating SELECT expression: %v", err)
 				}
@@ -362,9 +362,86 @@ func evaluateExpressionInRow(expr ast.ExprNode, table *Table, row Row) (interfac
 			return nil, err
 		}
 		return evaluateBinaryOperationValue(e.Op, leftVal, rightVal)
+	case *ast.SubqueryExpr:
+		// Scalar subqueries need database context - fall back to non-DB version will fail
+		return nil, fmt.Errorf("scalar subqueries require database context - use evaluateExpressionInRowWithDB")
 	default:
 		return nil, fmt.Errorf("unsupported expression type in evaluation: %T", expr)
 	}
+}
+
+// evaluateExpressionInRowWithDB evaluates an expression in the context of a row with database access
+func evaluateExpressionInRowWithDB(expr ast.ExprNode, db *Database, table *Table, row Row) (interface{}, error) {
+	switch e := expr.(type) {
+	case *ast.ColumnNameExpr:
+		colIndex := table.GetColumnIndex(e.Name.Name.String())
+		if colIndex == -1 {
+			return nil, fmt.Errorf("column %s does not exist", e.Name.Name.String())
+		}
+		return row.Values[colIndex], nil
+	case ast.ValueExpr:
+		return e.GetValue(), nil
+	case *ast.FuncCallExpr:
+		return evaluateFunctionCall(e, table, row)
+	case *ast.CaseExpr:
+		return evaluateCaseExpression(e, table, row)
+	case *ast.FuncCastExpr:
+		return evaluateCastExpression(e, table, row)
+	case *ast.UnaryOperationExpr:
+		return evaluateUnaryOperation(e, table, row)
+	case *ast.BinaryOperationExpr:
+		// Handle binary operations (both arithmetic and comparison)
+		leftVal, err := evaluateExpressionInRowWithDB(e.L, db, table, row)
+		if err != nil {
+			return nil, err
+		}
+		rightVal, err := evaluateExpressionInRowWithDB(e.R, db, table, row)
+		if err != nil {
+			return nil, err
+		}
+		return evaluateBinaryOperationValue(e.Op, leftVal, rightVal)
+	case *ast.SubqueryExpr:
+		// Handle scalar subqueries
+		return evaluateScalarSubquery(e, db, table, row)
+	default:
+		return nil, fmt.Errorf("unsupported expression type in evaluation: %T", expr)
+	}
+}
+
+// evaluateScalarSubquery evaluates a scalar subquery and returns a single value
+func evaluateScalarSubquery(subqueryExpr *ast.SubqueryExpr, db *Database, outerTable *Table, outerRow Row) (interface{}, error) {
+	// Cast Query to SelectStmt
+	subquery, ok := subqueryExpr.Query.(*ast.SelectStmt)
+	if !ok {
+		return nil, fmt.Errorf("scalar subquery must be a SELECT statement")
+	}
+
+	// Execute the subquery - for now, we don't support correlated subqueries fully
+	// A full implementation would need to substitute outer references
+	result, err := ExecuteSelect(db, subquery)
+	if err != nil {
+		return nil, fmt.Errorf("error executing scalar subquery: %v", err)
+	}
+
+	// Scalar subquery must return exactly one row and one column
+	if len(result.Rows) == 0 {
+		return nil, nil // Returns NULL if no rows
+	}
+	
+	if len(result.Rows) > 1 {
+		return nil, fmt.Errorf("scalar subquery returned more than one row")
+	}
+	
+	if len(result.Rows[0]) == 0 {
+		return nil, fmt.Errorf("scalar subquery returned no columns")
+	}
+	
+	if len(result.Rows[0]) > 1 {
+		return nil, fmt.Errorf("scalar subquery returned more than one column")
+	}
+	
+	// Return the single value
+	return result.Rows[0][0], nil
 }
 
 // evaluateBinaryOperationValue evaluates binary operations (arithmetic and comparison)
@@ -888,12 +965,12 @@ func evaluateBinaryOperationWithDB(expr *ast.BinaryOperationExpr, db *Database, 
 	}
 	
 	// For comparison operators, evaluate as values
-	leftVal, err := evaluateExpressionInRow(expr.L, table, row)
+	leftVal, err := evaluateExpressionInRowWithDB(expr.L, db, table, row)
 	if err != nil {
 		return false, err
 	}
 
-	rightVal, err := evaluateExpressionInRow(expr.R, table, row)
+	rightVal, err := evaluateExpressionInRowWithDB(expr.R, db, table, row)
 	if err != nil {
 		return false, err
 	}
