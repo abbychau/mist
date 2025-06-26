@@ -222,6 +222,18 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 		}
 		return result, nil
 
+	case *ast.SetStmt:
+		// Handle SET statements (including isolation levels)
+		return engine.executeSetStatement(stmt)
+
+	case *ast.LockTablesStmt:
+		// Handle LOCK TABLES statements (parse-only)
+		return engine.executeLockTables(stmt)
+
+	case *ast.UnlockTablesStmt:
+		// Handle UNLOCK TABLES statements (parse-only)
+		return engine.executeUnlockTables(stmt)
+
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", stmt)
 	}
@@ -663,4 +675,66 @@ func (engine *SQLEngine) rollbackToSavepoint(savepointName string) (interface{},
 	}
 
 	return nil, fmt.Errorf("savepoint %s does not exist", savepointName)
+}
+
+
+// executeSetStatement handles SET statements (parse-only for isolation levels)
+func (engine *SQLEngine) executeSetStatement(stmt *ast.SetStmt) (interface{}, error) {
+	// Parse and acknowledge SET statements without actually implementing them
+	// This is useful for compatibility with MySQL scripts that set isolation levels
+	
+	for _, variable := range stmt.Variables {
+		if variable.Name == "transaction_isolation" || 
+		   variable.Name == "tx_isolation" ||
+		   (variable.IsSystem && variable.Name == "transaction_isolation") {
+			// Isolation level setting
+			if variable.Value != nil {
+				return "Transaction isolation level acknowledged (not enforced)", nil
+			}
+		}
+		
+		// Handle global settings
+		if variable.IsGlobal {
+			return fmt.Sprintf("Global variable %s acknowledged (not enforced)", variable.Name), nil
+		}
+		
+		// Handle system variables
+		if variable.IsSystem {
+			return fmt.Sprintf("System variable %s acknowledged (not enforced)", variable.Name), nil
+		}
+		
+		// Handle other SET statements (session variables by default)
+		return fmt.Sprintf("Session variable %s acknowledged (not enforced)", variable.Name), nil
+	}
+	
+	return "SET statement acknowledged", nil
+}
+
+// executeLockTables handles LOCK TABLES statements (parse-only)
+func (engine *SQLEngine) executeLockTables(stmt *ast.LockTablesStmt) (interface{}, error) {
+	// Parse and acknowledge LOCK TABLES without actually implementing locking
+	// This is useful for compatibility with MySQL scripts that use table locking
+	
+	tableCount := len(stmt.TableLocks)
+	if tableCount == 0 {
+		return "LOCK TABLES acknowledged (no tables specified)", nil
+	}
+	
+	// Since this is parse-only, we'll acknowledge even if tables don't exist
+	// This improves compatibility with migration scripts where tables might be created later
+	var tableNames []string
+	for _, tableLock := range stmt.TableLocks {
+		tableName := tableLock.Table.Name.String()
+		tableNames = append(tableNames, tableName)
+	}
+	
+	return fmt.Sprintf("LOCK TABLES acknowledged for %d table(s) (not enforced)", tableCount), nil
+}
+
+// executeUnlockTables handles UNLOCK TABLES statements (parse-only)
+func (engine *SQLEngine) executeUnlockTables(stmt *ast.UnlockTablesStmt) (interface{}, error) {
+	// Parse and acknowledge UNLOCK TABLES without actually implementing unlocking
+	// This is useful for compatibility with MySQL scripts that use table locking
+	
+	return "UNLOCK TABLES acknowledged (not enforced)", nil
 }

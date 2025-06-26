@@ -769,9 +769,9 @@
                     </tr>
                     <tr>
                         <td><code>CHECK</code></td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not supported</td>
-                        <td>—</td>
+                        <td><span class="status-parsed">📝 Parsed</span></td>
+                        <td>Syntax accepted, not enforced</td>
+                        <td>Improves migration compatibility</td>
                     </tr>
                 </tbody>
             </table>
@@ -822,16 +822,69 @@
                     </tr>
                     <tr>
                         <td>Isolation levels</td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not implemented</td>
+                        <td><span class="status-parsed">📝 Parsed</span></td>
+                        <td>SET TRANSACTION ISOLATION LEVEL statements accepted, not enforced</td>
                     </tr>
                     <tr>
-                        <td><code>LOCK TABLES</code></td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not implemented</td>
+                        <td><code>LOCK TABLES, UNLOCK TABLES</code></td>
+                        <td><span class="status-parsed">📝 Parsed</span></td>
+                        <td>Statements accepted, locking not enforced</td>
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Parse-Only Features Section -->
+        <div class="compatibility-section" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(168, 85, 247, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3);">
+            <h2 style="color: var(--text-primary);">📝 Parse-Only Features</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                These features are parsed and acknowledged but not functionally implemented. This improves compatibility with MySQL scripts and migration tools.
+            </p>
+            
+            <table class="compatibility-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Syntax Support</th>
+                        <th>Migration Benefit</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>CHECK Constraints</strong></td>
+                        <td><span class="status-parsed">📝 Full Parsing</span></td>
+                        <td>MySQL dump files import without modification</td>
+                        <td><code>CHECK (price > 0)</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Transaction Isolation Levels</strong></td>
+                        <td><span class="status-parsed">📝 Full Parsing</span></td>
+                        <td>Migration scripts work without SET statement removal</td>
+                        <td><code>SET TRANSACTION ISOLATION LEVEL SERIALIZABLE</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Table Locking</strong></td>
+                        <td><span class="status-parsed">📝 Full Parsing</span></td>
+                        <td>Backup/restore scripts execute successfully</td>
+                        <td><code>LOCK TABLES users WRITE</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Session Variables</strong></td>
+                        <td><span class="status-parsed">📝 Full Parsing</span></td>
+                        <td>Configuration statements don't cause errors</td>
+                        <td><code>SET sql_mode = 'STRICT_TRANS_TABLES'</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-top: 2rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 0.5rem; border: 1px solid rgba(139, 92, 246, 0.3);">
+                <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">🔄 Migration Workflow</h4>
+                <p style="color: var(--text-secondary); margin: 0;">
+                    These parse-only features enable seamless migration from MySQL by accepting common SQL constructs without requiring script modification. 
+                    While the functionality isn't enforced, the syntax compatibility significantly reduces migration friction.
+                </p>
+            </div>
         </div>
 
         <!-- Performance Section -->
