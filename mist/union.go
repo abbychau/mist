@@ -2,38 +2,196 @@ package mist
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
-// ExecuteSetOperation is a placeholder for UNION operations
-// UNION operations are currently not supported due to TiDB parser limitations
-func ExecuteSetOperation(db *Database, stmt *ast.SetOprStmt) (*SelectResult, error) {
-	return nil, fmt.Errorf("UNION operations are not yet supported due to parser limitations")
+// ExecuteUnion executes a UNION statement combining multiple SELECT results
+func ExecuteUnion(db *Database, stmt *ast.SetOprStmt) (*SelectResult, error) {
+	if stmt.SelectList == nil || len(stmt.SelectList.Selects) == 0 {
+		return nil, fmt.Errorf("UNION statement must contain at least one SELECT")
+	}
+
+	// Execute all SELECT statements and collect results
+	var allResults []*SelectResult
+	var finalColumns []string
+	
+	// Process each SELECT statement in the UNION
+	for i, selectNode := range stmt.SelectList.Selects {
+		var result *SelectResult
+		var err error
+		
+		switch selectStmt := selectNode.(type) {
+		case *ast.SelectStmt:
+			// Check if this is a JOIN query
+			if isUnionJoinQuery(selectStmt) {
+				result, err = ExecuteSelectWithJoin(db, selectStmt)
+			} else {
+				result, err = ExecuteSelect(db, selectStmt)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("error executing SELECT %d in UNION: %v", i+1, err)
+			}
+			
+		case *ast.SetOprStmt:
+			// Nested UNION operation
+			result, err = ExecuteUnion(db, selectStmt)
+			if err != nil {
+				return nil, fmt.Errorf("error executing nested UNION %d: %v", i+1, err)
+			}
+			
+		default:
+			return nil, fmt.Errorf("unsupported statement type in UNION: %T", selectNode)
+		}
+		
+		// Validate column compatibility
+		if i == 0 {
+			// First SELECT defines the column structure
+			finalColumns = make([]string, len(result.Columns))
+			copy(finalColumns, result.Columns)
+		} else {
+			// Subsequent SELECTs must have the same number of columns
+			if len(result.Columns) != len(finalColumns) {
+				return nil, fmt.Errorf("UNION SELECT %d has %d columns, expected %d", 
+					i+1, len(result.Columns), len(finalColumns))
+			}
+		}
+		
+		allResults = append(allResults, result)
+	}
+	
+	// Determine the UNION operation type for each SELECT
+	unionTypes := getUnionTypes(stmt.SelectList.Selects)
+	
+	// Combine results according to UNION semantics
+	return combineUnionResults(allResults, unionTypes, finalColumns)
 }
 
-// executeUnionSelect executes a single SELECT statement within a UNION
-func executeUnionSelect(db *Database, stmt *ast.SelectStmt) (*SelectResult, error) {
-	// Create a temporary engine instance to execute the SELECT
-	tempEngine := &SQLEngine{database: db}
-	
-	// Check if this is a JOIN query
-	if tempEngine.isJoinQuery(stmt) {
-		return ExecuteSelectWithJoin(db, stmt)
-	}
-	
-	// Check if this is an aggregate query
-	if hasAggregateFunction(stmt.Fields.Fields) {
-		table, err := resolveTableFromSelect(db, stmt)
-		if err != nil {
-			return nil, err
-		}
-		return executeAggregateQuery(table, stmt.Fields.Fields, stmt.Where, stmt.GroupBy, stmt.Having, stmt.Limit)
+// isUnionJoinQuery checks if a SELECT statement contains a JOIN (helper for UNION)
+func isUnionJoinQuery(stmt *ast.SelectStmt) bool {
+	if stmt.From == nil || stmt.From.TableRefs == nil {
+		return false
 	}
 
-	// Regular SELECT
-	return ExecuteSelect(db, stmt)
+	// Check if TableRefs has a Right side (indicating a JOIN)
+	if stmt.From.TableRefs.Right != nil {
+		return true
+	}
+
+	// Check for comma-separated tables (cross join)
+	if join, ok := stmt.From.TableRefs.Left.(*ast.Join); ok {
+		if join.Tp == 0 && join.Right == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+// getUnionTypes extracts the union operation types for each SELECT
+func getUnionTypes(selects []ast.Node) []ast.SetOprType {
+	unionTypes := make([]ast.SetOprType, len(selects))
+	
+	for i, selectNode := range selects {
+		if i == 0 {
+			// First SELECT has no preceding operation
+			unionTypes[i] = ast.Union // Default, but not used
+			continue
+		}
+		
+		switch selectStmt := selectNode.(type) {
+		case *ast.SelectStmt:
+			if selectStmt.AfterSetOperator != nil {
+				unionTypes[i] = *selectStmt.AfterSetOperator
+			} else {
+				unionTypes[i] = ast.Union // Default to UNION DISTINCT
+			}
+			
+		case *ast.SetOprSelectList:
+			if selectStmt.AfterSetOperator != nil {
+				unionTypes[i] = *selectStmt.AfterSetOperator
+			} else {
+				unionTypes[i] = ast.Union // Default to UNION DISTINCT
+			}
+			
+		default:
+			unionTypes[i] = ast.Union // Default fallback
+		}
+	}
+	
+	return unionTypes
+}
+
+// combineUnionResults combines multiple SELECT results according to UNION semantics
+func combineUnionResults(results []*SelectResult, unionTypes []ast.SetOprType, finalColumns []string) (*SelectResult, error) {
+	if len(results) == 0 {
+		return &SelectResult{Columns: finalColumns, Rows: [][]interface{}{}}, nil
+	}
+	
+	// Start with the first result
+	combinedResult := &SelectResult{
+		Columns: finalColumns,
+		Rows:    make([][]interface{}, 0),
+	}
+	
+	// Copy rows from first result
+	for _, row := range results[0].Rows {
+		combinedResult.Rows = append(combinedResult.Rows, row)
+	}
+	
+	// Process each subsequent result
+	for i := 1; i < len(results); i++ {
+		unionType := unionTypes[i]
+		
+		switch unionType {
+		case ast.Union:
+			// UNION DISTINCT - add rows but eliminate duplicates
+			for _, row := range results[i].Rows {
+				if !containsRow(combinedResult.Rows, row) {
+					combinedResult.Rows = append(combinedResult.Rows, row)
+				}
+			}
+			
+		case ast.UnionAll:
+			// UNION ALL - add all rows without checking duplicates
+			for _, row := range results[i].Rows {
+				combinedResult.Rows = append(combinedResult.Rows, row)
+			}
+			
+		default:
+			return nil, fmt.Errorf("unsupported set operation type: %v", unionType)
+		}
+	}
+	
+	return combinedResult, nil
+}
+
+// containsRow checks if a slice of rows contains a specific row (for UNION DISTINCT)
+func containsRow(rows [][]interface{}, targetRow []interface{}) bool {
+	for _, row := range rows {
+		if len(row) != len(targetRow) {
+			continue
+		}
+		
+		match := true
+		for j := 0; j < len(row); j++ {
+			if !valuesEqual(row[j], targetRow[j]) {
+				match = false
+				break
+			}
+		}
+		
+		if match {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// ExecuteSetOperation is the legacy function now redirecting to ExecuteUnion
+func ExecuteSetOperation(db *Database, stmt *ast.SetOprStmt) (*SelectResult, error) {
+	return ExecuteUnion(db, stmt)
 }
 
 // resolveTableFromSelect resolves the main table from a SELECT statement
@@ -53,73 +211,4 @@ func resolveTableFromSelect(db *Database, stmt *ast.SelectStmt) (*Table, error) 
 	}
 
 	return nil, fmt.Errorf("could not resolve table from SELECT statement")
-}
-
-// mergeUnionResults combines multiple SelectResults into one
-func mergeUnionResults(results []*SelectResult, isDistinct bool) *SelectResult {
-	if len(results) == 0 {
-		return &SelectResult{Columns: []string{}, Rows: [][]interface{}{}}
-	}
-
-	// Use first result's columns as the base
-	mergedResult := &SelectResult{
-		Columns: results[0].Columns,
-		Rows:    [][]interface{}{},
-	}
-
-	var seenRows map[string]bool
-	if isDistinct {
-		seenRows = make(map[string]bool)
-	}
-
-	// Combine all rows
-	for _, result := range results {
-		for _, row := range result.Rows {
-			if isDistinct {
-				rowKey := createRowKey(row)
-				if !seenRows[rowKey] {
-					mergedResult.Rows = append(mergedResult.Rows, row)
-					seenRows[rowKey] = true
-				}
-			} else {
-				mergedResult.Rows = append(mergedResult.Rows, row)
-			}
-		}
-	}
-
-	return mergedResult
-}
-
-// createRowKey creates a string key for a row for duplicate detection
-func createRowKey(row []interface{}) string {
-	var parts []string
-	for _, value := range row {
-		if value == nil {
-			parts = append(parts, "NULL")
-		} else {
-			parts = append(parts, fmt.Sprintf("%v", value))
-		}
-	}
-	return strings.Join(parts, "|")
-}
-
-// isJoinQuery checks if a SELECT statement contains a JOIN
-func (engine *SQLEngine) isUnionJoinQuery(stmt *ast.SelectStmt) bool {
-	if stmt.From == nil || stmt.From.TableRefs == nil {
-		return false
-	}
-
-	// Check if TableRefs has a Right side (indicating a JOIN)
-	if stmt.From.TableRefs.Right != nil {
-		return true
-	}
-
-	// Check for comma-separated tables (cross join)
-	if join, ok := stmt.From.TableRefs.Left.(*ast.Join); ok {
-		if join.Tp == 0 && join.Right == nil {
-			return true
-		}
-	}
-
-	return false
 }

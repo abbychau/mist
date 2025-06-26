@@ -215,8 +215,12 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 		return "Table truncated successfully", nil
 
 	case *ast.SetOprStmt:
-		// UNION operations are not fully supported due to parser limitations
-		return nil, fmt.Errorf("UNION operations require more complex parser integration - not yet supported")
+		// UNION operations
+		result, err := ExecuteUnion(engine.database, stmt)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported statement type: %T", stmt)

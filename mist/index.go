@@ -11,6 +11,8 @@ type IndexType int
 
 const (
 	HashIndex IndexType = iota
+	CompositeIndex
+	FullTextIndex
 	// Future: BTreeIndex, etc.
 )
 
@@ -18,6 +20,10 @@ func (it IndexType) String() string {
 	switch it {
 	case HashIndex:
 		return "HASH"
+	case CompositeIndex:
+		return "COMPOSITE"
+	case FullTextIndex:
+		return "FULLTEXT"
 	default:
 		return "UNKNOWN"
 	}
@@ -25,22 +31,43 @@ func (it IndexType) String() string {
 
 // Index represents a database index
 type Index struct {
-	Name       string
-	TableName  string
-	ColumnName string
-	Type       IndexType
-	Data       map[interface{}][]int // value -> row indexes
-	mutex      sync.RWMutex
+	Name        string
+	TableName   string
+	ColumnName  string   // For single-column indexes (backward compatibility)
+	ColumnNames []string // For multi-column indexes (composite)
+	Type        IndexType
+	Data        map[interface{}][]int // value -> row indexes
+	IsParsedOnly bool                 // True for indexes that are parsed but not functionally implemented
+	mutex       sync.RWMutex
 }
 
-// NewIndex creates a new index
+// NewIndex creates a new single-column index
 func NewIndex(name, tableName, columnName string, indexType IndexType) *Index {
+	isParsedOnly := indexType == CompositeIndex || indexType == FullTextIndex
+	
 	return &Index{
-		Name:       name,
-		TableName:  tableName,
-		ColumnName: columnName,
-		Type:       indexType,
-		Data:       make(map[interface{}][]int),
+		Name:        name,
+		TableName:   tableName,
+		ColumnName:  columnName,
+		ColumnNames: []string{columnName},
+		Type:        indexType,
+		Data:        make(map[interface{}][]int),
+		IsParsedOnly: isParsedOnly,
+	}
+}
+
+// NewCompositeIndex creates a new multi-column index
+func NewCompositeIndex(name, tableName string, columnNames []string, indexType IndexType) *Index {
+	isParsedOnly := indexType == CompositeIndex || indexType == FullTextIndex
+	
+	return &Index{
+		Name:        name,
+		TableName:   tableName,
+		ColumnName:  strings.Join(columnNames, ","), // For backward compatibility
+		ColumnNames: columnNames,
+		Type:        indexType,
+		Data:        make(map[interface{}][]int),
+		IsParsedOnly: isParsedOnly,
 	}
 }
 
@@ -48,6 +75,11 @@ func NewIndex(name, tableName, columnName string, indexType IndexType) *Index {
 func (idx *Index) AddEntry(value interface{}, rowIndex int) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
+
+	// Skip operations for parsed-only indexes
+	if idx.IsParsedOnly {
+		return
+	}
 
 	// Normalize the value for consistent indexing
 	normalizedValue := normalizeIndexValue(value)
@@ -62,6 +94,11 @@ func (idx *Index) AddEntry(value interface{}, rowIndex int) {
 func (idx *Index) RemoveEntry(value interface{}, rowIndex int) {
 	idx.mutex.Lock()
 	defer idx.mutex.Unlock()
+
+	// Skip operations for parsed-only indexes
+	if idx.IsParsedOnly {
+		return
+	}
 
 	normalizedValue := normalizeIndexValue(value)
 
@@ -92,6 +129,11 @@ func (idx *Index) Lookup(value interface{}) []int {
 	idx.mutex.RLock()
 	defer idx.mutex.RUnlock()
 
+	// Parsed-only indexes don't provide actual lookup functionality
+	if idx.IsParsedOnly {
+		return nil
+	}
+
 	normalizedValue := normalizeIndexValue(value)
 
 	if rowIndexes, exists := idx.Data[normalizedValue]; exists {
@@ -112,22 +154,29 @@ func (idx *Index) RebuildIndex(table *Table) error {
 	// Clear existing data
 	idx.Data = make(map[interface{}][]int)
 
-	// Get column index
-	colIndex := table.GetColumnIndex(idx.ColumnName)
-	if colIndex == -1 {
-		return fmt.Errorf("column %s does not exist in table %s", idx.ColumnName, table.Name)
+	// Skip rebuild for parsed-only indexes
+	if idx.IsParsedOnly {
+		return nil
 	}
 
-	// Rebuild from all rows
-	rows := table.GetRows()
-	for i, row := range rows {
-		value := row.Values[colIndex]
-		normalizedValue := normalizeIndexValue(value)
-
-		if _, exists := idx.Data[normalizedValue]; !exists {
-			idx.Data[normalizedValue] = make([]int, 0)
+	// For single-column indexes (backward compatibility)
+	if len(idx.ColumnNames) == 1 {
+		colIndex := table.GetColumnIndex(idx.ColumnNames[0])
+		if colIndex == -1 {
+			return fmt.Errorf("column %s does not exist in table %s", idx.ColumnNames[0], table.Name)
 		}
-		idx.Data[normalizedValue] = append(idx.Data[normalizedValue], i)
+
+		// Rebuild from all rows
+		rows := table.GetRows()
+		for i, row := range rows {
+			value := row.Values[colIndex]
+			normalizedValue := normalizeIndexValue(value)
+
+			if _, exists := idx.Data[normalizedValue]; !exists {
+				idx.Data[normalizedValue] = make([]int, 0)
+			}
+			idx.Data[normalizedValue] = append(idx.Data[normalizedValue], i)
+		}
 	}
 
 	return nil
@@ -173,8 +222,13 @@ func NewIndexManager() *IndexManager {
 	}
 }
 
-// CreateIndex creates a new index
+// CreateIndex creates a new single-column index
 func (im *IndexManager) CreateIndex(name, tableName, columnName string, indexType IndexType, table *Table) error {
+	return im.CreateCompositeIndex(name, tableName, []string{columnName}, indexType, table)
+}
+
+// CreateCompositeIndex creates a new multi-column index
+func (im *IndexManager) CreateCompositeIndex(name, tableName string, columnNames []string, indexType IndexType, table *Table) error {
 	im.mutex.Lock()
 	defer im.mutex.Unlock()
 
@@ -183,10 +237,22 @@ func (im *IndexManager) CreateIndex(name, tableName, columnName string, indexTyp
 		return fmt.Errorf("index %s already exists", name)
 	}
 
-	// Create the index
-	index := NewIndex(name, tableName, columnName, indexType)
+	// Validate all columns exist
+	for _, columnName := range columnNames {
+		if table.GetColumnIndex(columnName) == -1 {
+			return fmt.Errorf("column %s does not exist in table %s", columnName, tableName)
+		}
+	}
 
-	// Build the index from existing data
+	// Create the index
+	var index *Index
+	if len(columnNames) == 1 {
+		index = NewIndex(name, tableName, columnNames[0], indexType)
+	} else {
+		index = NewCompositeIndex(name, tableName, columnNames, indexType)
+	}
+
+	// Build the index from existing data (only for functional indexes)
 	if err := index.RebuildIndex(table); err != nil {
 		return fmt.Errorf("failed to build index: %v", err)
 	}

@@ -193,9 +193,9 @@
                 <tbody>
                     <tr>
                         <td><code>CREATE INDEX</code></td>
-                        <td><span class="status-supported">✅ Basic</span></td>
-                        <td>Single-column hash indexes</td>
-                        <td>No composite, B-tree, or full-text indexes</td>
+                        <td><span class="status-supported">✅ Enhanced</span></td>
+                        <td>Single-column hash indexes (functional), composite indexes (parsed), full-text indexes (parsed)</td>
+                        <td>Composite and full-text indexes parsed but not functional</td>
                     </tr>
                     <tr>
                         <td><code>DROP INDEX</code></td>
@@ -312,8 +312,8 @@
                     </tr>
                     <tr>
                         <td>UNION</td>
-                        <td><span class="status-not-supported">❌ Limited</span></td>
-                        <td>Parser recognizes syntax but execution not supported</td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>Complete UNION and UNION ALL support with proper duplicate handling</td>
                     </tr>
                     <tr>
                         <td>Window functions</td>
@@ -691,13 +691,13 @@
                     </tr>
                     <tr>
                         <td>Composite indexes</td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not supported</td>
+                        <td><span class="status-parsed">📝 Parsed</span></td>
+                        <td>Syntax recognized and stored but no query optimization</td>
                     </tr>
                     <tr>
                         <td>Full-text indexes</td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>Not supported</td>
+                        <td><span class="status-parsed">📝 Parsed</span></td>
+                        <td>Syntax recognized and stored but no text search functionality</td>
                     </tr>
                 </tbody>
             </table>
