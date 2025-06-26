@@ -432,7 +432,10 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 			return nil, err
 		}
 
+		// Check if this is an arithmetic operation
 		switch e.Op {
+		case opcode.Plus, opcode.Minus, opcode.Mul, opcode.Div, opcode.Mod:
+			return evaluateBinaryOperationValue(e.Op, leftVal, rightVal)
 		case opcode.EQ:
 			return compareValues(leftVal, rightVal) == 0, nil
 		case opcode.NE:
@@ -490,6 +493,18 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 	case ast.ValueExpr:
 		return e.GetValue(), nil
 
+	case *ast.FuncCallExpr:
+		return evaluateFunctionCallOnJoinResult(e, joinResult, row)
+
+	case *ast.CaseExpr:
+		return evaluateCaseExpressionOnJoinResult(e, joinResult, row)
+
+	case *ast.FuncCastExpr:
+		return evaluateCastExpressionOnJoinResult(e, joinResult, row)
+
+	case *ast.UnaryOperationExpr:
+		return evaluateUnaryOperationOnJoinResult(e, joinResult, row)
+
 	default:
 		return nil, fmt.Errorf("unsupported expression type in join result evaluation: %T", expr)
 	}
@@ -510,46 +525,33 @@ func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult) (*
 		return executeAggregateOnJoinResult(fields, joinResult)
 	}
 
-	// Handle specific columns
+	// Handle specific columns and expressions
 	var selectedColumns []string
-	var columnIndexes []int
+	var expressions []ast.ExprNode
 
 	for _, field := range fields {
-		if colExpr, ok := field.Expr.(*ast.ColumnNameExpr); ok {
-			colName := colExpr.Name.Name.String()
-			tableName := colExpr.Name.Table.String()
-
-			// Find the column in the join result
-			fullColName := colName
-			if tableName != "" {
-				fullColName = fmt.Sprintf("%s.%s", tableName, colName)
-			}
-
-			colIndex := -1
-			for i, col := range joinResult.Columns {
-				if col == fullColName || (tableName == "" && strings.HasSuffix(col, "."+colName)) {
-					colIndex = i
-					break
-				}
-			}
-
-			if colIndex == -1 {
-				return nil, fmt.Errorf("column %s not found in join result", fullColName)
-			}
-
-			selectedColumns = append(selectedColumns, joinResult.Columns[colIndex])
-			columnIndexes = append(columnIndexes, colIndex)
+		// Generate column name (use alias if present, otherwise infer from expression)
+		var colName string
+		if field.AsName.L != "" {
+			colName = field.AsName.L
 		} else {
-			return nil, fmt.Errorf("complex expressions in SELECT not supported for joins yet: %T", field.Expr)
+			colName = inferColumnNameFromExpression(field.Expr)
 		}
+		
+		selectedColumns = append(selectedColumns, colName)
+		expressions = append(expressions, field.Expr)
 	}
 
-	// Build result rows
+	// Build result rows by evaluating expressions
 	var resultRows [][]interface{}
 	for _, row := range joinResult.Rows {
-		resultRow := make([]interface{}, len(columnIndexes))
-		for i, colIndex := range columnIndexes {
-			resultRow[i] = row[colIndex]
+		var resultRow []interface{}
+		for _, expr := range expressions {
+			value, err := evaluateExpressionOnJoinResult(expr, joinResult, row)
+			if err != nil {
+				return nil, fmt.Errorf("error evaluating JOIN SELECT expression: %v", err)
+			}
+			resultRow = append(resultRow, value)
 		}
 		resultRows = append(resultRows, resultRow)
 	}
@@ -851,4 +853,82 @@ func evaluateInExpressionOnJoinResult(expr *ast.PatternInExpr, joinResult *JoinR
 		return true, nil // NOT IN - no match, return true
 	}
 	return false, nil // IN - no match, return false
+}
+
+// evaluateCastExpressionOnJoinResult evaluates CAST expressions in JOIN context
+func evaluateCastExpressionOnJoinResult(castExpr *ast.FuncCastExpr, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+	// Evaluate the expression being cast
+	value, err := evaluateExpressionOnJoinResult(castExpr.Expr, joinResult, row)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating CAST expression: %v", err)
+	}
+
+	if value == nil {
+		return nil, nil
+	}
+
+	// Get the target type - use String() method of the FieldType
+	targetType := strings.ToUpper(castExpr.Tp.String())
+
+	// Handle common MySQL type names
+	if strings.Contains(targetType, "CHAR") || strings.Contains(targetType, "TEXT") {
+		return fmt.Sprintf("%v", value), nil
+	}
+	if strings.Contains(targetType, "INT") || strings.Contains(targetType, "BIGINT") {
+		return toInt64(value)
+	}
+	if strings.Contains(targetType, "DECIMAL") || strings.Contains(targetType, "FLOAT") || strings.Contains(targetType, "DOUBLE") {
+		return toFloat64(value)
+	}
+	if strings.Contains(targetType, "DATE") && !strings.Contains(targetType, "TIME") {
+		dateStr := fmt.Sprintf("%v", value)
+		t, err := parseDateTime(dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("CAST: cannot convert to DATE: %v", err)
+		}
+		return t.Format("2006-01-02"), nil
+	}
+	if strings.Contains(targetType, "DATETIME") || strings.Contains(targetType, "TIMESTAMP") {
+		dateStr := fmt.Sprintf("%v", value)
+		t, err := parseDateTime(dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("CAST: cannot convert to DATETIME: %v", err)
+		}
+		return t.Format("2006-01-02 15:04:05"), nil
+	}
+
+	// Default to string conversion
+	return fmt.Sprintf("%v", value), nil
+}
+
+// evaluateUnaryOperationOnJoinResult evaluates unary operations in JOIN context
+func evaluateUnaryOperationOnJoinResult(unaryExpr *ast.UnaryOperationExpr, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+	// Evaluate the operand
+	value, err := evaluateExpressionOnJoinResult(unaryExpr.V, joinResult, row)
+	if err != nil {
+		return nil, err
+	}
+
+	if value == nil {
+		return nil, nil
+	}
+
+	switch unaryExpr.Op {
+	case opcode.Minus:
+		// Unary minus
+		num, err := toFloat64(value)
+		if err != nil {
+			return nil, fmt.Errorf("unary minus requires numeric value: %v", err)
+		}
+		return -num, nil
+	case opcode.Plus:
+		// Unary plus (no-op)
+		num, err := toFloat64(value)
+		if err != nil {
+			return nil, fmt.Errorf("unary plus requires numeric value: %v", err)
+		}
+		return num, nil
+	default:
+		return nil, fmt.Errorf("unsupported unary operator: %v", unaryExpr.Op)
+	}
 }

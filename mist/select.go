@@ -64,30 +64,45 @@ func ExecuteSelect(db *Database, stmt *ast.SelectStmt) (*SelectResult, error) {
 		}
 	}
 
-	// If not SELECT *, process individual columns
+	// If not SELECT *, process individual columns/expressions
+	var expressions []ast.ExprNode
 	if len(selectedColumns) == 0 {
 		for _, field := range stmt.Fields.Fields {
-			if colExpr, ok := field.Expr.(*ast.ColumnNameExpr); ok {
-				colName := colExpr.Name.Name.String()
-				colIndex := table.GetColumnIndex(colName)
-				if colIndex == -1 {
-					return nil, fmt.Errorf("column %s does not exist", colName)
-				}
-				selectedColumns = append(selectedColumns, colName)
-				columnIndexes = append(columnIndexes, colIndex)
+			// Generate column name (use alias if present, otherwise infer from expression)
+			var colName string
+			if field.AsName.L != "" {
+				colName = field.AsName.L
 			} else {
-				return nil, fmt.Errorf("complex expressions in SELECT not supported yet: %T", field.Expr)
+				colName = inferColumnNameFromExpression(field.Expr)
 			}
+			
+			selectedColumns = append(selectedColumns, colName)
+			expressions = append(expressions, field.Expr)
 		}
 	}
 
 	// Build result rows
 	var resultRows [][]interface{}
 	for _, row := range rows {
-		resultRow := make([]interface{}, len(columnIndexes))
-		for i, colIndex := range columnIndexes {
-			resultRow[i] = row.Values[colIndex]
+		var resultRow []interface{}
+		
+		if len(expressions) > 0 {
+			// Evaluate expressions for each column
+			for _, expr := range expressions {
+				value, err := evaluateExpressionInRow(expr, table, row)
+				if err != nil {
+					return nil, fmt.Errorf("error evaluating SELECT expression: %v", err)
+				}
+				resultRow = append(resultRow, value)
+			}
+		} else {
+			// Use column indexes for SELECT *
+			resultRow = make([]interface{}, len(columnIndexes))
+			for i, colIndex := range columnIndexes {
+				resultRow[i] = row.Values[colIndex]
+			}
 		}
+		
 		resultRows = append(resultRows, resultRow)
 	}
 
@@ -280,8 +295,173 @@ func evaluateExpressionInRow(expr ast.ExprNode, table *Table, row Row) (interfac
 		return row.Values[colIndex], nil
 	case ast.ValueExpr:
 		return e.GetValue(), nil
+	case *ast.FuncCallExpr:
+		return evaluateFunctionCall(e, table, row)
+	case *ast.CaseExpr:
+		return evaluateCaseExpression(e, table, row)
+	case *ast.FuncCastExpr:
+		return evaluateCastExpression(e, table, row)
+	case *ast.UnaryOperationExpr:
+		return evaluateUnaryOperation(e, table, row)
+	case *ast.BinaryOperationExpr:
+		// Handle binary operations (both arithmetic and comparison)
+		leftVal, err := evaluateExpressionInRow(e.L, table, row)
+		if err != nil {
+			return nil, err
+		}
+		rightVal, err := evaluateExpressionInRow(e.R, table, row)
+		if err != nil {
+			return nil, err
+		}
+		return evaluateBinaryOperationValue(e.Op, leftVal, rightVal)
 	default:
-		return nil, fmt.Errorf("unsupported expression type in WHERE: %T", expr)
+		return nil, fmt.Errorf("unsupported expression type in evaluation: %T", expr)
+	}
+}
+
+// evaluateBinaryOperationValue evaluates binary operations (arithmetic and comparison)
+func evaluateBinaryOperationValue(op opcode.Op, left, right interface{}) (interface{}, error) {
+	// Handle NULL values for arithmetic operations
+	if (op == opcode.Plus || op == opcode.Minus || op == opcode.Mul || op == opcode.Div || op == opcode.Mod) &&
+		(left == nil || right == nil) {
+		return nil, nil
+	}
+
+	switch op {
+	// Arithmetic operations
+	case opcode.Plus, opcode.Minus, opcode.Mul, opcode.Div, opcode.Mod:
+		// Convert to numeric values
+		leftNum, err := toFloat64(left)
+		if err != nil {
+			return nil, fmt.Errorf("invalid numeric value in arithmetic operation: %v", err)
+		}
+		
+		rightNum, err := toFloat64(right)
+		if err != nil {
+			return nil, fmt.Errorf("invalid numeric value in arithmetic operation: %v", err)
+		}
+
+		switch op {
+		case opcode.Plus:
+			return leftNum + rightNum, nil
+		case opcode.Minus:
+			return leftNum - rightNum, nil
+		case opcode.Mul:
+			return leftNum * rightNum, nil
+		case opcode.Div:
+			if rightNum == 0 {
+				return nil, nil // Division by zero returns NULL in MySQL
+			}
+			return leftNum / rightNum, nil
+		case opcode.Mod:
+			if rightNum == 0 {
+				return nil, nil // Modulo by zero returns NULL in MySQL
+			}
+			return float64(int64(leftNum) % int64(rightNum)), nil
+		}
+
+	// Comparison operations
+	case opcode.EQ:
+		return compareValues(left, right) == 0, nil
+	case opcode.NE:
+		return compareValues(left, right) != 0, nil
+	case opcode.LT:
+		return compareValues(left, right) < 0, nil
+	case opcode.LE:
+		return compareValues(left, right) <= 0, nil
+	case opcode.GT:
+		return compareValues(left, right) > 0, nil
+	case opcode.GE:
+		return compareValues(left, right) >= 0, nil
+
+	// Logical operations
+	case opcode.LogicAnd:
+		return isTruthy(left) && isTruthy(right), nil
+	case opcode.LogicOr:
+		return isTruthy(left) || isTruthy(right), nil
+
+	default:
+		return nil, fmt.Errorf("unsupported binary operator: %v", op)
+	}
+
+	return nil, fmt.Errorf("unreachable code in binary operation")
+}
+
+// evaluateCastExpression evaluates CAST expressions like CAST(value AS type)
+func evaluateCastExpression(castExpr *ast.FuncCastExpr, table *Table, row Row) (interface{}, error) {
+	// Evaluate the expression being cast
+	value, err := evaluateExpressionInRow(castExpr.Expr, table, row)
+	if err != nil {
+		return nil, fmt.Errorf("error evaluating CAST expression: %v", err)
+	}
+
+	if value == nil {
+		return nil, nil
+	}
+
+	// Get the target type - use String() method of the FieldType
+	targetType := strings.ToUpper(castExpr.Tp.String())
+
+	// Handle common MySQL type names
+	if strings.Contains(targetType, "CHAR") || strings.Contains(targetType, "TEXT") {
+		return fmt.Sprintf("%v", value), nil
+	}
+	if strings.Contains(targetType, "INT") || strings.Contains(targetType, "BIGINT") {
+		return toInt64(value)
+	}
+	if strings.Contains(targetType, "DECIMAL") || strings.Contains(targetType, "FLOAT") || strings.Contains(targetType, "DOUBLE") {
+		return toFloat64(value)
+	}
+	if strings.Contains(targetType, "DATE") && !strings.Contains(targetType, "TIME") {
+		dateStr := fmt.Sprintf("%v", value)
+		t, err := parseDateTime(dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("CAST: cannot convert to DATE: %v", err)
+		}
+		return t.Format("2006-01-02"), nil
+	}
+	if strings.Contains(targetType, "DATETIME") || strings.Contains(targetType, "TIMESTAMP") {
+		dateStr := fmt.Sprintf("%v", value)
+		t, err := parseDateTime(dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("CAST: cannot convert to DATETIME: %v", err)
+		}
+		return t.Format("2006-01-02 15:04:05"), nil
+	}
+
+	// Default to string conversion
+	return fmt.Sprintf("%v", value), nil
+}
+
+// evaluateUnaryOperation evaluates unary operations like -value
+func evaluateUnaryOperation(unaryExpr *ast.UnaryOperationExpr, table *Table, row Row) (interface{}, error) {
+	// Evaluate the operand
+	value, err := evaluateExpressionInRow(unaryExpr.V, table, row)
+	if err != nil {
+		return nil, err
+	}
+
+	if value == nil {
+		return nil, nil
+	}
+
+	switch unaryExpr.Op {
+	case opcode.Minus:
+		// Unary minus
+		num, err := toFloat64(value)
+		if err != nil {
+			return nil, fmt.Errorf("unary minus requires numeric value: %v", err)
+		}
+		return -num, nil
+	case opcode.Plus:
+		// Unary plus (no-op)
+		num, err := toFloat64(value)
+		if err != nil {
+			return nil, fmt.Errorf("unary plus requires numeric value: %v", err)
+		}
+		return num, nil
+	default:
+		return nil, fmt.Errorf("unsupported unary operator: %v", unaryExpr.Op)
 	}
 }
 
@@ -597,5 +777,37 @@ func inferColumnType(value interface{}) ColumnType {
 		return TypeVarchar
 	default:
 		return TypeText
+	}
+}
+
+// inferColumnNameFromExpression generates a column name from an expression
+func inferColumnNameFromExpression(expr ast.ExprNode) string {
+	switch e := expr.(type) {
+	case *ast.ColumnNameExpr:
+		return e.Name.Name.String()
+	case *ast.FuncCallExpr:
+		// Generate function call representation like "UPPER(name)"
+		funcName := strings.ToUpper(e.FnName.L)
+		if len(e.Args) == 0 {
+			return fmt.Sprintf("%s()", funcName)
+		}
+		var argNames []string
+		for _, arg := range e.Args {
+			argNames = append(argNames, inferColumnNameFromExpression(arg))
+		}
+		return fmt.Sprintf("%s(%s)", funcName, strings.Join(argNames, ","))
+	case *ast.BinaryOperationExpr:
+		// Generate arithmetic expression representation like "(price * quantity)"
+		leftName := inferColumnNameFromExpression(e.L)
+		rightName := inferColumnNameFromExpression(e.R)
+		return fmt.Sprintf("(%s %s %s)", leftName, e.Op.String(), rightName)
+	case *ast.CaseExpr:
+		// Generate CASE expression representation
+		return "CASE"
+	case ast.ValueExpr:
+		// For literal values, use their string representation
+		return fmt.Sprintf("%v", e.GetValue())
+	default:
+		return "expr"
 	}
 }
