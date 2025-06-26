@@ -32,7 +32,7 @@
                 <a href="#installation">Installation</a>
                 <a href="#usage">Usage</a>
                 <a href="#daemon">Daemon Mode</a>
-                <a href="#examples">Examples</a>
+                <a href="#operations">Operations</a>
                 <a href="mysql_compatibility.html">MySQL Compatibility</a>
                 <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
             </div>
@@ -114,43 +114,30 @@ mist.PrintResult(result)</code></pre>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
-                    <p>Built with TiDB parser for full MySQL syntax compatibility. Original MySQL schemas now work without "compatible" modifications.</p>
+                    <p>Built with TiDB parser for full MySQL syntax compatibility. Original MySQL schemas work seamlessly without modifications.</p>
+                    <div class="feature-link">
+                        <a href="mysql_compatibility.html" class="compatibility-btn">📋 View Complete Compatibility Guide</a>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🔄</span> Nested Transactions</h3>
                     <p>Full nested transaction support with savepoints, rollback isolation, proper state management, and ACID properties.</p>
                 </div>
                 <div class="feature-card">
-                    <h3><span class="feature-icon">🔑</span> Foreign Key Constraints</h3>
-                    <p>Complete referential integrity with CASCADE, SET NULL, SET DEFAULT, and RESTRICT actions for data integrity.</p>
+                    <h3><span class="feature-icon">🔗</span> Referential Integrity</h3>
+                    <p>Complete foreign key support with automatic constraint validation and cascade actions for maintaining data consistency.</p>
                 </div>
                 <div class="feature-card">
-                    <h3><span class="feature-icon">📅</span> Native DATE & ENUM Types</h3>
-                    <p>Full support for DATE data type with flexible parsing and ENUM with value validation for modern SQL compatibility.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔒</span> UNIQUE Constraints</h3>
-                    <p>Column and table-level UNIQUE constraints with automatic duplicate prevention and index optimization.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">⏰</span> Auto Timestamps</h3>
-                    <p>ON UPDATE CURRENT_TIMESTAMP support for automatic timestamp management and audit trails.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📊</span> GROUP BY</h3>
-                    <p>Full GROUP BY support with all aggregate functions (COUNT/SUM/AVG/MIN/MAX) and proper validation.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔢</span> Auto Increment</h3>
-                    <p>Automatic ID generation with AUTO_INCREMENT support for seamless primary key management.</p>
+                    <h3><span class="feature-icon">📊</span> Modern Data Types</h3>
+                    <p>Full support for advanced data types including dates, enums, decimals, and automatic timestamp management.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">🛡️</span> Thread Safe</h3>
                     <p>Concurrent operations are handled safely, making it perfect for multi-threaded applications.</p>
                 </div>
                 <div class="feature-card">
-                    <h3><span class="feature-icon">🔍</span> Advanced Queries</h3>
-                    <p>Support for JOINs, subqueries, aggregates, indexes, and complex WHERE clauses with full referential integrity.</p>
+                    <h3><span class="feature-icon">🔍</span> Advanced Querying</h3>
+                    <p>Comprehensive query capabilities including joins, subqueries, aggregation, and complex filtering with optimized performance.</p>
                 </div>
                 <div class="feature-card">
                     <h3><span class="feature-icon">📊</span> Query Recording</h3>
@@ -761,61 +748,26 @@ Connection closed by foreign host.</code></pre>
         </div>
     </section>
 
-    <!-- Examples Section -->
-    <section id="examples" class="examples">
+    <!-- Operations Section -->
+    <section id="operations" class="examples">
         <div class="container">
             <h2 class="section-title">Supported Operations</h2>
-            <div class="examples-grid">                <div class="example-card">
-                    <h3>Schema & Structure</h3>
-                    <ul>
-                        <li>CREATE/ALTER/DROP TABLE</li>
-                        <li>AUTO_INCREMENT primary keys</li>
-                        <li>UNIQUE constraints & indexes</li>
-                        <li>FOREIGN KEY constraints with actions</li>
-                        <li>Native DATE & ENUM types</li>
-                        <li>ON UPDATE CURRENT_TIMESTAMP</li>
-                        <li>CREATE/DROP INDEX</li>
-                        <li>SHOW TABLES/INDEX</li>
-                    </ul>
+            <div class="operations-grid">
+                <div class="operation-card">
+                    <h3>🏗️ Complete SQL Operations</h3>
+                    <p>Full support for table operations (CREATE/ALTER/DROP), data manipulation (INSERT/UPDATE/DELETE), and advanced querying with JOINs, subqueries, and aggregates. Includes AUTO_INCREMENT, UNIQUE constraints, and foreign key relationships with CASCADE actions.</p>
                 </div>
-                <div class="example-card">
-                    <h3>Data Operations</h3>
-                    <ul>
-                        <li>INSERT/UPDATE/DELETE/REPLACE</li>
-                        <li>Referential integrity enforcement</li>
-                        <li>CASCADE/SET NULL/SET DEFAULT actions</li>
-                        <li>Automatic timestamp updates</li>
-                        <li>ENUM value validation</li>
-                        <li>UNIQUE constraint checking</li>
-                        <li>Complex WHERE conditions</li>
-                        <li>Multiple value inserts</li>
-                    </ul>
+                <div class="operation-card">
+                    <h3>🔄 Advanced Transactions</h3>
+                    <p>Full nested transaction support with unlimited depth, savepoints, and ACID properties. Thread-safe transaction management with ROLLBACK TO SAVEPOINT and RELEASE SAVEPOINT capabilities for fine-grained control.</p>
                 </div>
-                <div class="example-card">
-                    <h3>Transaction Control</h3>
-                    <ul>
-                        <li>START TRANSACTION / BEGIN</li>
-                        <li>COMMIT / ROLLBACK</li>
-                        <li>Nested transactions (unlimited depth)</li>
-                        <li>SAVEPOINT creation & management</li>
-                        <li>ROLLBACK TO SAVEPOINT</li>
-                        <li>RELEASE SAVEPOINT</li>
-                        <li>ACID properties & isolation</li>
-                        <li>Thread-safe transaction state</li>
-                    </ul>
+                <div class="operation-card">
+                    <h3>🗂️ Modern Data Types</h3>
+                    <p>Native support for DATE, ENUM, DECIMAL, TIMESTAMP with automatic ON UPDATE CURRENT_TIMESTAMP, and comprehensive referential integrity enforcement with foreign key constraints and validation.</p>
                 </div>
-                <div class="example-card">
-                    <h3>Advanced Queries</h3>
-                    <ul>
-                        <li>JOINs (INNER/LEFT/RIGHT) & subqueries</li>
-                        <li>Full GROUP BY & HAVING support</li>
-                        <li>Aggregates (COUNT/SUM/AVG/MIN/MAX)</li>
-                        <li>ORDER BY, LIMIT, OFFSET</li>
-                        <li>Date operations & comparisons</li>
-                        <li>CASE expressions & functions</li>
-                        <li>Cross-table constraint validation</li>
-                    </ul>
-                </div>
+            </div>
+            <div class="compatibility-link">
+                <p><strong>Need detailed compatibility information?</strong> <a href="mysql_compatibility.html" class="btn-link">View complete MySQL compatibility guide →</a></p>
             </div>
         </div>
     </section>

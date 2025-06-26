@@ -473,6 +473,33 @@ body {
     line-height: 1.6;
 }
 
+.feature-link {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.compatibility-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    border: 2px solid var(--primary-color);
+}
+
+.compatibility-btn:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
 /* Installation Section */
 .installation {
     padding: 6rem 0;
@@ -648,6 +675,66 @@ body {
     left: 0;
     color: var(--primary-color);
     font-weight: bold;
+}
+
+/* Operations Section */
+.operations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.operation-card {
+    background: var(--surface);
+    padding: 2.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+.operation-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-color);
+}
+
+.operation-card h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}
+
+.operation-card p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+.compatibility-link {
+    text-align: center;
+    padding: 2rem;
+    background: var(--surface);
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.compatibility-link p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+.btn-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.btn-link:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
 }
 
 /* Footer */
