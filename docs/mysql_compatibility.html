@@ -126,6 +126,66 @@
             </div>
         </div>
 
+        <!-- Recent Enhancements Section -->
+        <div class="compatibility-section" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(34, 197, 94, 0.3);">
+            <h2 style="color: var(--text-primary);">🆕 Recent Enhancements</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                The following features have been recently implemented, significantly expanding MySQL compatibility:
+            </p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🔍 Pattern Matching</h3>
+                    <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                        <li><strong>LIKE/NOT LIKE</strong> with % and _ wildcards</li>
+                        <li>Case-sensitive pattern matching</li>
+                        <li>Escaped literal support (\%, \_)</li>
+                        <li>Full WHERE and JOIN integration</li>
+                    </ul>
+                    <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
+                        <code>WHERE name LIKE 'John%'</code><br>
+                        <code>WHERE email NOT LIKE '%@temp.com'</code>
+                    </div>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🚫 Logical NOT Operator</h3>
+                    <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                        <li><strong>NOT</strong> operator for all conditions</li>
+                        <li>Complex expression negation</li>
+                        <li>Double negation support</li>
+                        <li>Integration with all existing operators</li>
+                    </ul>
+                    <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
+                        <code>WHERE NOT active</code><br>
+                        <code>WHERE NOT (age < 18 OR status = 'temp')</code>
+                    </div>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🔍 EXISTS Subqueries</h3>
+                    <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
+                        <li><strong>EXISTS/NOT EXISTS</strong> subqueries</li>
+                        <li>Non-correlated subquery support</li>
+                        <li>Complex condition integration</li>
+                        <li>Proper NULL handling</li>
+                    </ul>
+                    <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
+                        <code>WHERE EXISTS (SELECT 1 FROM...)</code><br>
+                        <code>WHERE NOT EXISTS (SELECT * FROM...)</code>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 0.5rem; border: 1px solid rgba(59, 130, 246, 0.3);">
+                <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">💡 Migration Impact</h4>
+                <p style="color: var(--text-secondary); margin: 0;">
+                    These enhancements significantly reduce the need for application-level workarounds when migrating from MySQL. 
+                    Pattern matching queries and logical operations now work natively, improving both performance and code simplicity.
+                </p>
+            </div>
+        </div>
+
         <!-- DDL Section -->
         <div class="compatibility-section">
             <h2>Data Definition Language (DDL)</h2>
@@ -614,16 +674,16 @@
                     <tr>
                         <td>Logical</td>
                         <td><code>NOT</code></td>
-                        <td><span class="status-not-supported">❌ None</span></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
                         <td>—</td>
-                        <td>Not implemented</td>
                     </tr>
                     <tr>
                         <td>Pattern Matching</td>
                         <td><code>LIKE, NOT LIKE</code></td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>—</td>
-                        <td>No wildcard pattern matching</td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>Supports % and _ wildcards</td>
                     </tr>
                     <tr>
                         <td>Set Operations</td>
@@ -836,14 +896,14 @@
                     <tr>
                         <td>WHERE Expressions</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, functions, arithmetic expressions</td>
-                        <td>LIKE patterns, subqueries</td>
+                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, EXISTS/NOT EXISTS (basic), functions, arithmetic expressions</td>
+                        <td>Correlated subqueries, REGEXP</td>
                     </tr>
                     <tr>
                         <td>JOIN Conditions</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, functions, arithmetic expressions</td>
-                        <td>LIKE patterns, subqueries</td>
+                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, functions, arithmetic expressions</td>
+                        <td>EXISTS subqueries, REGEXP</td>
                     </tr>
                     <tr>
                         <td>ORDER BY</td>
@@ -953,8 +1013,8 @@
             <div style="margin: 1rem 0;">
                 <h4 style="color: var(--text-primary);">⚠️ Manual Adjustments Needed</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li>Replace LIKE patterns with exact matches or application filtering</li>
-                    <li>Replace subqueries with separate queries and application logic</li>
+                    <li>Replace correlated subqueries with separate queries and application logic</li>
+                    <li>Replace REGEXP/RLIKE patterns with LIKE or application filtering</li>
                     <li>Remove stored procedures, triggers, and views</li>
                     <li>Add explicit transactions where needed</li>
                 </ul>
