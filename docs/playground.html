@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mist SQL Playground - Try MySQL-Compatible Queries Online</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/theme/monokai.min.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/sql/sql.min.js"></script>
+    <style>
+        .playground {
+            min-height: 100vh;
+            background: var(--background);
+            padding-top: 80px;
+        }
+        
+        .playground-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            height: calc(100vh - 120px);
+        }
+        
+        .editor-panel, .results-panel {
+            background: var(--surface);
+            border-radius: 1rem;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: var(--surface-light);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .editor-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .CodeMirror {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            background: var(--surface) !important;
+            color: var(--text-primary) !important;
+            border: none !important;
+        }
+        
+        .CodeMirror-gutters {
+            background: var(--surface-light) !important;
+            border-right: 1px solid var(--border-color) !important;
+        }
+        
+        .CodeMirror-linenumber {
+            color: var(--text-muted) !important;
+        }
+        
+        .toolbar {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--surface-light);
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn-execute {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-execute:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-execute:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--surface-light);
+            color: var(--text-primary);
+        }
+        
+        .results-content {
+            flex: 1;
+            overflow: auto;
+            padding: 1.5rem;
+        }
+        
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .result-table th {
+            background: var(--surface-light);
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .result-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+        
+        .result-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .result-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        .result-message {
+            background: var(--surface-light);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: var(--text-secondary);
+        }
+        
+        .result-message.success {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+        
+        .result-message.error {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+        
+        .examples-sidebar {
+            background: var(--surface-light);
+            border-top: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .examples-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .example-query {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .example-query:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateX(2px);
+        }
+        
+        .status-bar {
+            padding: 0.5rem 1.5rem;
+            background: var(--surface-light);
+            border-top: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .wasm-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+        
+        .status-indicator.ready {
+            background: #10b981;
+        }
+        
+        .demo-mode-notice {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid var(--accent-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: var(--accent-color);
+            text-align: center;
+        }
+        
+        @media (max-width: 1024px) {
+            .playground-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .editor-panel, .results-panel {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <img src="mist-icon.svg" alt="Mist" class="logo">
+                <span class="brand-text">Mist Playground</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="mysql_compatibility.html">MySQL Compatibility</a>
+                <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Playground -->
+    <section class="playground">
+        <div class="playground-container">
+            <!-- Editor Panel -->
+            <div class="editor-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <span>📝</span> SQL Editor
+                    </h3>
+                    <div class="wasm-status">
+                        <span class="status-indicator" id="wasmStatus"></span>
+                        <span id="wasmStatusText">Connecting...</span>
+                    </div>
+                </div>
+                
+                
+                <div class="editor-content">
+                    <textarea id="sqlEditor">-- Welcome to Mist SQL Playground!
+-- Click "Execute Query" to run SQL commands or use Quick Examples below
+
+-- Create a users table
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    age INT
+);
+
+-- Insert some sample data
+INSERT INTO users (name, email, age) VALUES 
+    ('Alice Johnson', 'alice@example.com', 28),
+    ('Bob Smith', 'bob@example.com', 35);
+
+-- Query the data
+SELECT * FROM users;</textarea>
+                </div>
+                
+                <div class="toolbar">
+                    <button class="btn-execute" id="executeBtn">
+                        <span>▶</span> Execute Query
+                    </button>
+                    <button class="btn-secondary" id="clearBtn">Clear</button>
+                    <button class="btn-secondary" id="formatBtn">Format SQL</button>
+                </div>
+                
+                <div class="examples-sidebar">
+                    <div class="examples-title">Quick Examples</div>
+                    <div class="example-query" data-query="CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(255), age INT);">📝 Create Table</div>
+                    <div class="example-query" data-query="INSERT INTO users (name, email, age) VALUES ('John Doe', 'john@example.com', 28), ('Jane Smith', 'jane@example.com', 35);">➕ Insert Data</div>
+                    <div class="example-query" data-query="SELECT * FROM users;">📋 Select All</div>
+                    <div class="example-query" data-query="SELECT name, email FROM users WHERE age > 30;">🔍 WHERE Query</div>
+                    <div class="example-query" data-query="UPDATE users SET age = age + 1 WHERE name = 'John Doe';">✏️ Update Data</div>
+                    <div class="example-query" data-query="SELECT COUNT(*), AVG(age) as avg_age FROM users;">📊 Aggregates</div>
+                    <div class="example-query" data-query="CREATE TABLE orders (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, product VARCHAR(100), amount DECIMAL(10,2));">🛒 Orders Table</div>
+                    <div class="example-query" data-query="INSERT INTO orders (user_id, product, amount) VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99);">🛍️ Insert Orders</div>
+                    <div class="example-query" data-query="SELECT u.name, o.product, o.amount FROM users u JOIN orders o ON u.id = o.user_id;">🔗 JOIN Query</div>
+                    <div class="example-query" data-query="DELETE FROM users WHERE age < 25;">🗑️ Delete Data</div>
+                    <div class="example-query" data-query="SHOW TABLES;">📁 Show Tables</div>
+                </div>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="results-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <span>📊</span> Query Results
+                    </h3>
+                    <span id="executionTime"></span>
+                </div>
+                
+                <div class="results-content" id="resultsContent">
+                    <div class="result-message">
+                        👋 Welcome to Mist SQL Playground!<br><br>
+                        Execute a SQL query to see results here. This playground demonstrates Mist's MySQL-compatible syntax and features.
+                    </div>
+                </div>
+                
+                <div class="status-bar">
+                    <span id="resultStatus">Ready</span>
+                    <span id="rowCount"></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        let wasmEngine = null;
+        let wasmReady = false;
+        
+        // Initialize WASM
+        async function initWASM() {
+            try {
+                const go = new Go();
+                const result = await WebAssembly.instantiateStreaming(fetch('mist.wasm'), go.importObject);
+                go.run(result.instance);
+                
+                // Wait for WASM to be ready
+                let attempts = 0;
+                while (!window.mistReady && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (window.mistReady) {
+                    wasmReady = true;
+                    document.getElementById('wasmStatus').className = 'status-indicator ready';
+                    document.getElementById('wasmStatusText').textContent = 'WASM Ready';
+                    
+                    console.log('Mist WASM engine loaded successfully!');
+                    console.log('Available functions:', Object.keys(window).filter(k => k.startsWith('mist')));
+                } else {
+                    throw new Error('WASM initialization timeout');
+                }
+                
+            } catch (error) {
+                console.error('Failed to load WASM:', error);
+                document.getElementById('wasmStatusText').textContent = 'WASM Failed';
+            }
+        }
+        
+        // Initialize CodeMirror
+        const editor = CodeMirror.fromTextArea(document.getElementById('sqlEditor'), {
+            mode: 'sql',
+            theme: 'monokai',
+            lineNumbers: true,
+            indentUnit: 4,
+            lineWrapping: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            extraKeys: {
+                'Ctrl-Enter': executeQuery,
+                'Cmd-Enter': executeQuery,
+                'F5': executeQuery
+            }
+        });
+
+        // Demo database simulation
+        class DemoDatabase {
+            constructor() {
+                this.tables = {};
+                this.autoIncrements = {};
+                this.initSampleData();
+            }
+
+            initSampleData() {
+                // Initialize with some sample data
+                this.tables = {};
+                this.autoIncrements = {};
+            }
+
+            execute(query) {
+                const sql = query.trim().toUpperCase();
+                
+                // Simple query parsing for demo
+                if (sql.startsWith('CREATE TABLE')) {
+                    return this.handleCreateTable(query);
+                } else if (sql.startsWith('INSERT INTO')) {
+                    return this.handleInsert(query);
+                } else if (sql.startsWith('SELECT')) {
+                    return this.handleSelect(query);
+                } else if (sql.startsWith('UPDATE')) {
+                    return this.handleUpdate(query);
+                } else if (sql.startsWith('DELETE')) {
+                    return this.handleDelete(query);
+                } else if (sql.startsWith('SHOW TABLES')) {
+                    return this.handleShowTables();
+                } else {
+                    return {
+                        type: 'message',
+                        message: 'Query executed successfully (demo mode)'
+                    };
+                }
+            }
+
+            handleCreateTable(query) {
+                // Extract table name
+                const match = query.match(/CREATE TABLE\\s+(\\w+)/i);
+                if (match) {
+                    const tableName = match[1];
+                    this.tables[tableName] = [];
+                    this.autoIncrements[tableName] = 1;
+                    return {
+                        type: 'message',
+                        message: `Table '${tableName}' created successfully`
+                    };
+                }
+                throw new Error('Invalid CREATE TABLE syntax');
+            }
+
+            handleInsert(query) {
+                // Simple INSERT simulation
+                const match = query.match(/INSERT INTO\\s+(\\w+)/i);
+                if (match) {
+                    const tableName = match[1];
+                    if (!this.tables[tableName]) {
+                        this.tables[tableName] = [];
+                        this.autoIncrements[tableName] = 1;
+                    }
+                    
+                    // Add sample row
+                    const row = { id: this.autoIncrements[tableName]++, data: 'sample' };
+                    this.tables[tableName].push(row);
+                    
+                    return {
+                        type: 'message',
+                        message: '1 row inserted'
+                    };
+                }
+                throw new Error('Invalid INSERT syntax');
+            }
+
+            handleSelect(query) {
+                // Clean up query - remove semicolon and normalize
+                const cleanQuery = query.replace(/;\\s*$/, '').trim();
+                const match = cleanQuery.match(/FROM\\s+(\\w+)/i);
+                if (match) {
+                    const tableName = match[1].toLowerCase();
+                    const table = this.tables[tableName] || [];
+                    
+                    if (cleanQuery.toUpperCase().includes('COUNT(*)')) {
+                        return {
+                            type: 'select',
+                            columns: ['COUNT(*)'],
+                            rows: [[table.length]]
+                        };
+                    }
+                    
+                    // Return sample data for demonstration
+                    if (tableName === 'users') {
+                        return {
+                            type: 'select',
+                            columns: ['id', 'name', 'email', 'age', 'created_at'],
+                            rows: [
+                                [1, 'Alice Johnson', 'alice@example.com', 28, '2024-01-15 10:30:00'],
+                                [2, 'Bob Smith', 'bob@example.com', 35, '2024-01-16 14:22:00'],
+                                [3, 'Carol Davis', 'carol@example.com', 42, '2024-01-17 09:15:00']
+                            ]
+                        };
+                    } else {
+                        // For other tables, return empty but valid structure
+                        return {
+                            type: 'select',
+                            columns: ['id', 'data'],
+                            rows: []
+                        };
+                    }
+                }
+                throw new Error(`Invalid SELECT syntax: ${cleanQuery}`);
+            }
+
+            handleUpdate(query) {
+                return {
+                    type: 'message',
+                    message: '1 row updated'
+                };
+            }
+
+            handleDelete(query) {
+                return {
+                    type: 'message',
+                    message: '1 row deleted'
+                };
+            }
+
+            handleShowTables() {
+                const tableNames = Object.keys(this.tables);
+                return {
+                    type: 'select',
+                    columns: ['Tables'],
+                    rows: tableNames.map(name => [name])
+                };
+            }
+        }
+
+        // Initialize demo database
+        const demoDb = new DemoDatabase();
+
+        // UI Event Handlers
+        document.getElementById('executeBtn').addEventListener('click', executeQuery);
+        document.getElementById('clearBtn').addEventListener('click', clearEditor);
+        document.getElementById('formatBtn').addEventListener('click', formatSQL);
+
+        // Example queries
+        document.querySelectorAll('.example-query').forEach(el => {
+            el.addEventListener('click', () => {
+                const query = el.getAttribute('data-query');
+                editor.setValue(query);
+                editor.focus();
+            });
+        });
+
+        function executeQuery() {
+            const query = editor.getValue().trim();
+            if (!query) return;
+
+            const executeBtn = document.getElementById('executeBtn');
+            const resultsContent = document.getElementById('resultsContent');
+            const resultStatus = document.getElementById('resultStatus');
+            const executionTime = document.getElementById('executionTime');
+            
+            executeBtn.disabled = true;
+            executeBtn.textContent = '⏳ Executing...';
+            resultStatus.textContent = 'Executing...';
+            
+            const startTime = performance.now();
+            
+            try {
+                console.log('executeQuery: wasmReady =', wasmReady, 'mistExecute =', typeof window.mistExecute);
+                
+                // Use WASM engine if available, otherwise fall back to demo
+                if (wasmReady && window.mistExecute) {
+                    console.log('Using WASM engine for query:', query);
+                    try {
+                        const result = window.mistExecute(query);
+                        console.log('WASM result:', result);
+                        const endTime = performance.now();
+                        const duration = (endTime - startTime).toFixed(1);
+                        
+                        if (result && result.error) {
+                            displayError(result.error);
+                            resultStatus.textContent = 'Error';
+                        } else {
+                            displayResult(result);
+                            executionTime.textContent = `${duration}ms (WASM)`;
+                            resultStatus.textContent = 'Success (WASM)';
+                        }
+                        
+                        executeBtn.disabled = false;
+                        executeBtn.innerHTML = '<span>▶</span> Execute Query';
+                        
+                    } catch (error) {
+                        displayError('WASM Error: ' + error.message);
+                        executeBtn.disabled = false;
+                        executeBtn.innerHTML = '<span>▶</span> Execute Query';
+                        resultStatus.textContent = 'Error';
+                    }
+                } else {
+                    console.log('Falling back to demo mode - wasmReady:', wasmReady, 'mistExecute:', typeof window.mistExecute);
+                    // Fall back to demo mode
+                    setTimeout(() => {
+                        try {
+                            const result = demoDb.execute(query);
+                            const endTime = performance.now();
+                            const duration = (endTime - startTime).toFixed(1);
+                            
+                            displayResult(result);
+                            executionTime.textContent = `${duration}ms (Demo)`;
+                            resultStatus.textContent = 'Success (Demo)';
+                            
+                        } catch (error) {
+                            displayError(error.message);
+                            resultStatus.textContent = 'Error';
+                        } finally {
+                            executeBtn.disabled = false;
+                            executeBtn.innerHTML = '<span>▶</span> Execute Query';
+                        }
+                    }, 100);
+                }
+                
+            } catch (error) {
+                displayError(error.message);
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<span>▶</span> Execute Query';
+                resultStatus.textContent = 'Error';
+            }
+        }
+
+        function displayResult(result) {
+            const resultsContent = document.getElementById('resultsContent');
+            const rowCount = document.getElementById('rowCount');
+            
+            if (result.type === 'select') {
+                const table = createTable(result.columns, result.rows);
+                resultsContent.innerHTML = '';
+                resultsContent.appendChild(table);
+                rowCount.textContent = `${result.rows.length} rows`;
+            } else {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'result-message success';
+                messageDiv.textContent = result.message;
+                resultsContent.innerHTML = '';
+                resultsContent.appendChild(messageDiv);
+                rowCount.textContent = '';
+            }
+        }
+
+        function displayError(message) {
+            const resultsContent = document.getElementById('resultsContent');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'result-message error';
+            messageDiv.textContent = message;
+            resultsContent.innerHTML = '';
+            resultsContent.appendChild(messageDiv);
+            document.getElementById('rowCount').textContent = '';
+        }
+
+        function createTable(columns, rows) {
+            const table = document.createElement('table');
+            table.className = 'result-table';
+            
+            // Create header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Create body
+            const tbody = document.createElement('tbody');
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            
+            return table;
+        }
+
+        function clearEditor() {
+            editor.setValue('');
+            editor.focus();
+        }
+
+        function formatSQL() {
+            // Simple SQL formatting
+            let sql = editor.getValue();
+            sql = sql.replace(/\\bSELECT\\b/gi, 'SELECT')
+                     .replace(/\\bFROM\\b/gi, 'FROM')
+                     .replace(/\\bWHERE\\b/gi, 'WHERE')
+                     .replace(/\\bINSERT\\b/gi, 'INSERT')
+                     .replace(/\\bUPDATE\\b/gi, 'UPDATE')
+                     .replace(/\\bCREATE\\b/gi, 'CREATE')
+                     .replace(/\\bTABLE\\b/gi, 'TABLE');
+            editor.setValue(sql);
+        }
+
+        // Initialize WASM on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initWASM();
+        });
+        
+        // Also try to initialize immediately
+        initWASM();
+    </script>
+</body>
+</html>
