@@ -3,6 +3,7 @@ module github.com/abbychau/mist
 go 1.23.4
 
 require (
+	github.com/pingcap/tidb v1.1.0-beta.0.20231124053542-069631e2ecfe
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20231124053542-069631e2ecfe
 )
 

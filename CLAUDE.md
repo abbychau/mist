@@ -10,14 +10,23 @@ Mist is an in-memory MySQL-compatible database engine written in Go. It provides
 
 ### Building and Running
 ```bash
-# Build the project
-go build .
+# Build the main executable
+go build -o mist ./cmd/mist
 
 # Run the demo (default mode)
-go run .
+go run ./cmd/mist
 
 # Run in interactive mode
-go run . -i
+go run ./cmd/mist -i
+
+# Run as daemon server
+go run ./cmd/mist -d
+
+# Build WASM version for web
+./build-wasm.sh
+
+# Build Linux binaries for distribution  
+./build-linux.sh
 
 # Install dependencies
 go mod tidy

@@ -3,3 +3,13 @@ examples/recording/recording.exe
 recording_example.exe
 test_builtin_functions
 mist/mist
+
+# Build output directory
+bin/
+*.wasm
+wasm_exec.js
+
+# Built binaries
+mist
+mist-*
+CLAUDE.md
