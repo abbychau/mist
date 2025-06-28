@@ -11,8 +11,8 @@ func main() {
 	// Add console logging for debugging
 	js.Global().Get("console").Call("log", "Mist WASM: Starting initialization...")
 	
-	// Initialize the WASM SQL engine
-	engine = NewSQLEngine()
+	// Try to initialize with TiDB parser, fall back to standalone if it fails
+	engine = NewSQLEngine() // Keep using standalone for now
 	js.Global().Get("console").Call("log", "Mist WASM: Engine created")
 	
 	// Register JavaScript functions

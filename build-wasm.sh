@@ -10,9 +10,9 @@ mkdir -p "$OUTPUT_DIR"
 OUTPUT_WASM="$OUTPUT_DIR/mist.wasm"
 OUTPUT_JS="$OUTPUT_DIR/wasm_exec.js"
 
-# Build the WASM module
+# Build the WASM module from the wasm directory to avoid root dependencies
 echo "Building Mist WASM..."
-env GOOS=js GOARCH=wasm go build -o "$OUTPUT_WASM" ./wasm
+cd wasm && env GOOS=js GOARCH=wasm go build -o "../$OUTPUT_WASM" . && cd ..
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then

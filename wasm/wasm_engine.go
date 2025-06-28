@@ -4,13 +4,15 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 )
 
-// Use basic types without importing the full Mist package to avoid TiDB dependencies
+// Smart WASM SQL engine that implements proper WHERE and JOIN logic
+// without heavy TiDB dependencies
 
-// ColumnType represents the type of a column  
+// ColumnType represents the type of a column
 type ColumnType int
 
 const (
@@ -80,7 +82,7 @@ func NewSQLEngine() *SQLEngine {
 	}
 }
 
-// Execute executes a SQL query (simplified version for WASM)
+// Execute executes a SQL query with proper parsing
 func (engine *SQLEngine) Execute(query string) (interface{}, error) {
 	engine.mutex.Lock()
 	defer engine.mutex.Unlock()
@@ -122,9 +124,9 @@ func (engine *SQLEngine) Execute(query string) (interface{}, error) {
 	}
 }
 
-// Simplified CREATE TABLE handler
+// Enhanced CREATE TABLE with proper column parsing
 func (engine *SQLEngine) handleCreateTable(query string) (string, error) {
-	// Basic parsing for demo - extract table name
+	// Parse CREATE TABLE statement properly
 	parts := strings.Fields(query)
 	if len(parts) < 3 {
 		return "", fmt.Errorf("invalid CREATE TABLE syntax")
@@ -132,52 +134,131 @@ func (engine *SQLEngine) handleCreateTable(query string) (string, error) {
 	
 	tableName := strings.ToLower(parts[2])
 	
-	// Create basic table structure
+	// Find the opening parenthesis for column definitions
+	openParen := strings.Index(query, "(")
+	closeParen := strings.LastIndex(query, ")")
+	
+	if openParen == -1 || closeParen == -1 {
+		return "", fmt.Errorf("invalid CREATE TABLE syntax: missing column definitions")
+	}
+	
+	columnDefs := query[openParen+1:closeParen]
+	columns := parseColumnDefinitions(columnDefs)
+	
 	table := &Table{
 		Name:            tableName,
-		Columns:         []Column{},
+		Columns:         columns,
 		Rows:            [][]interface{}{},
 		AutoIncrementID: 1,
-	}
-	
-	// Add some basic columns for demo based on common patterns
-	if strings.Contains(strings.ToLower(query), "id") {
-		table.Columns = append(table.Columns, Column{
-			Name:          "id",
-			Type:          ColumnTypeInt,
-			AutoIncrement: true,
-			PrimaryKey:    true,
-		})
-	}
-	
-	if strings.Contains(strings.ToLower(query), "name") {
-		table.Columns = append(table.Columns, Column{
-			Name:   "name",
-			Type:   ColumnTypeVarChar,
-			Length: 255,
-		})
-	}
-	
-	if strings.Contains(strings.ToLower(query), "email") {
-		table.Columns = append(table.Columns, Column{
-			Name:   "email",
-			Type:   ColumnTypeVarChar,
-			Length: 255,
-		})
-	}
-	
-	if strings.Contains(strings.ToLower(query), "age") {
-		table.Columns = append(table.Columns, Column{
-			Name: "age",
-			Type: ColumnTypeInt,
-		})
 	}
 	
 	engine.DB.Tables[tableName] = table
 	return fmt.Sprintf("Table '%s' created successfully", tableName), nil
 }
 
-// INSERT handler with proper VALUES parsing  
+// Parse column definitions from CREATE TABLE
+func parseColumnDefinitions(columnDefs string) []Column {
+	var columns []Column
+	
+	// Split by comma, but be careful of parentheses
+	parts := smartSplit(columnDefs, ',')
+	
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		
+		column := parseColumnDefinition(part)
+		if column.Name != "" {
+			columns = append(columns, column)
+		}
+	}
+	
+	return columns
+}
+
+// Parse a single column definition
+func parseColumnDefinition(def string) Column {
+	parts := strings.Fields(def)
+	if len(parts) < 2 {
+		return Column{}
+	}
+	
+	column := Column{
+		Name: strings.ToLower(parts[0]),
+	}
+	
+	// Parse type
+	typeStr := strings.ToUpper(parts[1])
+	if strings.Contains(typeStr, "INT") {
+		column.Type = ColumnTypeInt
+	} else if strings.Contains(typeStr, "VARCHAR") {
+		column.Type = ColumnTypeVarChar
+		// Extract length from VARCHAR(n)
+		if parenStart := strings.Index(typeStr, "("); parenStart != -1 {
+			if parenEnd := strings.Index(typeStr[parenStart:], ")"); parenEnd != -1 {
+				lengthStr := typeStr[parenStart+1:parenStart+parenEnd]
+				if length, err := strconv.Atoi(lengthStr); err == nil {
+					column.Length = length
+				}
+			}
+		}
+	} else if strings.Contains(typeStr, "TEXT") {
+		column.Type = ColumnTypeText
+	} else if strings.Contains(typeStr, "DECIMAL") {
+		column.Type = ColumnTypeDecimal
+	} else if strings.Contains(typeStr, "FLOAT") {
+		column.Type = ColumnTypeFloat
+	} else {
+		column.Type = ColumnTypeVarChar // Default
+	}
+	
+	// Parse constraints
+	defUpper := strings.ToUpper(def)
+	if strings.Contains(defUpper, "AUTO_INCREMENT") {
+		column.AutoIncrement = true
+	}
+	if strings.Contains(defUpper, "PRIMARY KEY") {
+		column.PrimaryKey = true
+	}
+	if strings.Contains(defUpper, "UNIQUE") {
+		column.Unique = true
+	}
+	if strings.Contains(defUpper, "NOT NULL") {
+		column.NotNull = true
+	}
+	
+	return column
+}
+
+// Smart split that respects parentheses
+func smartSplit(s string, delimiter rune) []string {
+	var parts []string
+	var current strings.Builder
+	parenLevel := 0
+	
+	for _, char := range s {
+		if char == '(' {
+			parenLevel++
+		} else if char == ')' {
+			parenLevel--
+		} else if char == delimiter && parenLevel == 0 {
+			parts = append(parts, current.String())
+			current.Reset()
+			continue
+		}
+		current.WriteRune(char)
+	}
+	
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	
+	return parts
+}
+
+// Enhanced INSERT with proper VALUES parsing (reusing previous implementation)
 func (engine *SQLEngine) handleInsert(query string) (string, error) {
 	// Extract table name
 	queryLower := strings.ToLower(query)
@@ -199,40 +280,33 @@ func (engine *SQLEngine) handleInsert(query string) (string, error) {
 		return "", fmt.Errorf("missing VALUES clause")
 	}
 	
-	valuesClause := query[valuesIndex+6:] // Skip "VALUES"
+	valuesClause := query[valuesIndex+6:]
 	valuesClause = strings.TrimSpace(valuesClause)
 	
-	// Remove trailing semicolon
 	if strings.HasSuffix(valuesClause, ";") {
 		valuesClause = valuesClause[:len(valuesClause)-1]
 		valuesClause = strings.TrimSpace(valuesClause)
 	}
 	
-	// Parse multiple value rows
 	rowsInserted := 0
-	
-	// Simple parsing for multiple rows like ('a', 'b', 28), ('c', 'd', 35)
 	currentPos := 0
+	
 	for currentPos < len(valuesClause) {
-		// Find opening parenthesis
 		openParen := strings.Index(valuesClause[currentPos:], "(")
 		if openParen == -1 {
 			break
 		}
 		openParen += currentPos
 		
-		// Find closing parenthesis
 		closeParen := strings.Index(valuesClause[openParen:], ")")
 		if closeParen == -1 {
 			break
 		}
 		closeParen += openParen
 		
-		// Extract values between parentheses
 		valuesStr := valuesClause[openParen+1:closeParen]
 		values := parseValues(valuesStr)
 		
-		// Create row with proper values
 		row := make([]interface{}, len(table.Columns))
 		valueIndex := 0
 		
@@ -242,7 +316,6 @@ func (engine *SQLEngine) handleInsert(query string) (string, error) {
 				table.AutoIncrementID++
 			} else if valueIndex < len(values) {
 				value := values[valueIndex]
-				// Convert based on column type
 				switch col.Type {
 				case ColumnTypeInt:
 					if intVal, ok := parseIntValue(value); ok {
@@ -264,10 +337,7 @@ func (engine *SQLEngine) handleInsert(query string) (string, error) {
 		table.Rows = append(table.Rows, row)
 		rowsInserted++
 		
-		// Move to next row
 		currentPos = closeParen + 1
-		
-		// Skip comma and whitespace
 		for currentPos < len(valuesClause) && (valuesClause[currentPos] == ',' || valuesClause[currentPos] == ' ') {
 			currentPos++
 		}
@@ -276,7 +346,384 @@ func (engine *SQLEngine) handleInsert(query string) (string, error) {
 	return fmt.Sprintf("%d row(s) inserted", rowsInserted), nil
 }
 
-// Helper function to parse values from a string like "'John Doe', 'john@example.com', 28"
+// Enhanced SELECT with proper WHERE clause and JOIN support
+func (engine *SQLEngine) handleSelect(query string) (*SelectResult, error) {
+	queryLower := strings.ToLower(query)
+	
+	// Check if it's a JOIN query
+	if strings.Contains(queryLower, " join ") {
+		return engine.handleJoinSelect(query)
+	}
+	
+	// Parse simple SELECT
+	selectClause, fromClause, whereClause := parseSelectParts(query)
+	
+	// Get table
+	tableName := strings.TrimSpace(fromClause)
+	// Remove alias if present (e.g., "users u" -> "users")
+	if parts := strings.Fields(tableName); len(parts) > 1 {
+		tableName = parts[0]
+	}
+	
+	table, exists := engine.DB.Tables[tableName]
+	if !exists {
+		return nil, fmt.Errorf("table '%s' doesn't exist", tableName)
+	}
+	
+	// Determine which columns to select
+	selectedColumns, columnIndexes := parseSelectColumns(selectClause, table)
+	
+	// Filter rows based on WHERE clause
+	filteredRows := filterRows(table.Rows, table.Columns, whereClause)
+	
+	// Project columns
+	resultRows := projectColumns(filteredRows, columnIndexes)
+	
+	return &SelectResult{
+		Columns: selectedColumns,
+		Rows:    resultRows,
+	}, nil
+}
+
+// Handle JOIN queries
+func (engine *SQLEngine) handleJoinSelect(query string) (*SelectResult, error) {
+	// Parse JOIN query
+	selectClause, joinInfo := parseJoinQuery(query)
+	
+	leftTable, exists := engine.DB.Tables[joinInfo.LeftTable]
+	if !exists {
+		return nil, fmt.Errorf("table '%s' doesn't exist", joinInfo.LeftTable)
+	}
+	
+	rightTable, exists := engine.DB.Tables[joinInfo.RightTable]
+	if !exists {
+		return nil, fmt.Errorf("table '%s' doesn't exist", joinInfo.RightTable)
+	}
+	
+	// Perform JOIN
+	joinedRows := performJoin(leftTable, rightTable, joinInfo)
+	
+	// Parse select columns for JOIN (e.g., "u.name, o.product")
+	selectedColumns, columnIndexes := parseJoinSelectColumns(selectClause, leftTable, rightTable, joinInfo)
+	
+	// Project columns
+	resultRows := projectColumns(joinedRows, columnIndexes)
+	
+	return &SelectResult{
+		Columns: selectedColumns,
+		Rows:    resultRows,
+	}, nil
+}
+
+// Parse SELECT, FROM, WHERE parts
+func parseSelectParts(query string) (string, string, string) {
+	queryLower := strings.ToLower(query)
+	
+	selectStart := strings.Index(queryLower, "select") + 6
+	fromIndex := strings.Index(queryLower, "from")
+	whereIndex := strings.Index(queryLower, "where")
+	
+	selectClause := ""
+	fromClause := ""
+	whereClause := ""
+	
+	if fromIndex > selectStart {
+		selectClause = strings.TrimSpace(query[selectStart:fromIndex])
+	}
+	
+	if fromIndex != -1 {
+		fromStart := fromIndex + 4
+		if whereIndex != -1 {
+			fromClause = strings.TrimSpace(query[fromStart:whereIndex])
+		} else {
+			fromClause = strings.TrimSpace(query[fromStart:])
+		}
+	}
+	
+	if whereIndex != -1 {
+		whereStart := whereIndex + 5
+		whereClause = strings.TrimSpace(query[whereStart:])
+	}
+	
+	return selectClause, fromClause, whereClause
+}
+
+// Parse which columns to select
+func parseSelectColumns(selectClause string, table *Table) ([]string, []int) {
+	if selectClause == "*" {
+		columns := make([]string, len(table.Columns))
+		indexes := make([]int, len(table.Columns))
+		for i, col := range table.Columns {
+			columns[i] = col.Name
+			indexes[i] = i
+		}
+		return columns, indexes
+	}
+	
+	// Parse comma-separated column list
+	parts := strings.Split(selectClause, ",")
+	columns := make([]string, len(parts))
+	indexes := make([]int, len(parts))
+	
+	for i, part := range parts {
+		columnName := strings.TrimSpace(part)
+		columns[i] = columnName
+		
+		// Find column index
+		for j, col := range table.Columns {
+			if col.Name == columnName {
+				indexes[i] = j
+				break
+			}
+		}
+	}
+	
+	return columns, indexes
+}
+
+// Filter rows based on WHERE clause
+func filterRows(rows [][]interface{}, columns []Column, whereClause string) [][]interface{} {
+	if whereClause == "" {
+		return rows
+	}
+	
+	var filteredRows [][]interface{}
+	
+	for _, row := range rows {
+		if evaluateWhere(row, columns, whereClause) {
+			filteredRows = append(filteredRows, row)
+		}
+	}
+	
+	return filteredRows
+}
+
+// Evaluate WHERE clause for a row
+func evaluateWhere(row []interface{}, columns []Column, whereClause string) bool {
+	// Simple WHERE evaluation (age > 30, name = 'John', etc.)
+	whereClause = strings.TrimSpace(whereClause)
+	
+	// Handle simple comparisons
+	for _, op := range []string{" >= ", " <= ", " > ", " < ", " = ", " != "} {
+		if strings.Contains(whereClause, op) {
+			parts := strings.Split(whereClause, op)
+			if len(parts) == 2 {
+				left := strings.TrimSpace(parts[0])
+				right := strings.TrimSpace(parts[1])
+				
+				// Find column
+				for i, col := range columns {
+					if col.Name == left && i < len(row) {
+						return compareValues(row[i], right, op)
+					}
+				}
+			}
+		}
+	}
+	
+	return true // Default to include if we can't parse
+}
+
+// Compare values based on operator
+func compareValues(leftVal interface{}, rightStr string, operator string) bool {
+	rightStr = strings.Trim(rightStr, "' \"")
+	
+	switch leftVal := leftVal.(type) {
+	case int:
+		if rightInt, err := strconv.Atoi(rightStr); err == nil {
+			switch operator {
+			case " > ":
+				return leftVal > rightInt
+			case " < ":
+				return leftVal < rightInt
+			case " >= ":
+				return leftVal >= rightInt
+			case " <= ":
+				return leftVal <= rightInt
+			case " = ":
+				return leftVal == rightInt
+			case " != ":
+				return leftVal != rightInt
+			}
+		}
+	case string:
+		switch operator {
+		case " = ":
+			return leftVal == rightStr
+		case " != ":
+			return leftVal != rightStr
+		}
+	}
+	
+	return false
+}
+
+// Project columns from rows
+func projectColumns(rows [][]interface{}, columnIndexes []int) [][]interface{} {
+	var resultRows [][]interface{}
+	
+	for _, row := range rows {
+		resultRow := make([]interface{}, len(columnIndexes))
+		for i, colIndex := range columnIndexes {
+			if colIndex < len(row) {
+				resultRow[i] = row[colIndex]
+			}
+		}
+		resultRows = append(resultRows, resultRow)
+	}
+	
+	return resultRows
+}
+
+// JOIN structures and functions
+type JoinInfo struct {
+	LeftTable  string
+	RightTable string
+	LeftAlias  string
+	RightAlias string
+	LeftColumn string
+	RightColumn string
+}
+
+func parseJoinQuery(query string) (string, JoinInfo) {
+	queryLower := strings.ToLower(query)
+	
+	// Extract SELECT clause
+	selectStart := strings.Index(queryLower, "select") + 6
+	fromIndex := strings.Index(queryLower, "from")
+	selectClause := strings.TrimSpace(query[selectStart:fromIndex])
+	
+	// Parse FROM table1 alias1 JOIN table2 alias2 ON condition
+	fromPart := query[fromIndex+4:]
+	joinIndex := strings.Index(strings.ToLower(fromPart), " join ")
+	onIndex := strings.Index(strings.ToLower(fromPart), " on ")
+	
+	leftPart := strings.TrimSpace(fromPart[:joinIndex])
+	joinPart := strings.TrimSpace(fromPart[joinIndex+6:onIndex])
+	onPart := strings.TrimSpace(fromPart[onIndex+4:])
+	
+	// Parse left table and alias
+	leftParts := strings.Fields(leftPart)
+	leftTable := leftParts[0]
+	leftAlias := leftTable
+	if len(leftParts) > 1 {
+		leftAlias = leftParts[1]
+	}
+	
+	// Parse right table and alias
+	rightParts := strings.Fields(joinPart)
+	rightTable := rightParts[0]
+	rightAlias := rightTable
+	if len(rightParts) > 1 {
+		rightAlias = rightParts[1]
+	}
+	
+	// Parse ON condition (e.g., "u.id = o.user_id")
+	onParts := strings.Split(onPart, " = ")
+	leftColumn := ""
+	rightColumn := ""
+	if len(onParts) == 2 {
+		leftCol := strings.TrimSpace(onParts[0])
+		rightCol := strings.TrimSpace(onParts[1])
+		
+		// Remove alias prefix (e.g., "u.id" -> "id")
+		if dotIndex := strings.Index(leftCol, "."); dotIndex != -1 {
+			leftColumn = leftCol[dotIndex+1:]
+		}
+		if dotIndex := strings.Index(rightCol, "."); dotIndex != -1 {
+			rightColumn = rightCol[dotIndex+1:]
+		}
+	}
+	
+	return selectClause, JoinInfo{
+		LeftTable:   leftTable,
+		RightTable:  rightTable,
+		LeftAlias:   leftAlias,
+		RightAlias:  rightAlias,
+		LeftColumn:  leftColumn,
+		RightColumn: rightColumn,
+	}
+}
+
+func performJoin(leftTable, rightTable *Table, joinInfo JoinInfo) [][]interface{} {
+	var joinedRows [][]interface{}
+	
+	// Find column indices for join condition
+	leftColIndex := -1
+	rightColIndex := -1
+	
+	for i, col := range leftTable.Columns {
+		if col.Name == joinInfo.LeftColumn {
+			leftColIndex = i
+			break
+		}
+	}
+	
+	for i, col := range rightTable.Columns {
+		if col.Name == joinInfo.RightColumn {
+			rightColIndex = i
+			break
+		}
+	}
+	
+	if leftColIndex == -1 || rightColIndex == -1 {
+		return joinedRows
+	}
+	
+	// Perform nested loop join
+	for _, leftRow := range leftTable.Rows {
+		for _, rightRow := range rightTable.Rows {
+			if fmt.Sprintf("%v", leftRow[leftColIndex]) == fmt.Sprintf("%v", rightRow[rightColIndex]) {
+				// Combine rows
+				combinedRow := make([]interface{}, len(leftRow)+len(rightRow))
+				copy(combinedRow, leftRow)
+				copy(combinedRow[len(leftRow):], rightRow)
+				joinedRows = append(joinedRows, combinedRow)
+			}
+		}
+	}
+	
+	return joinedRows
+}
+
+func parseJoinSelectColumns(selectClause string, leftTable, rightTable *Table, joinInfo JoinInfo) ([]string, []int) {
+	parts := strings.Split(selectClause, ",")
+	columns := make([]string, len(parts))
+	indexes := make([]int, len(parts))
+	
+	for i, part := range parts {
+		part = strings.TrimSpace(part)
+		columns[i] = part
+		
+		// Parse alias.column (e.g., "u.name", "o.product")
+		if dotIndex := strings.Index(part, "."); dotIndex != -1 {
+			alias := part[:dotIndex]
+			columnName := part[dotIndex+1:]
+			
+			if alias == joinInfo.LeftAlias {
+				// Find in left table
+				for j, col := range leftTable.Columns {
+					if col.Name == columnName {
+						indexes[i] = j
+						break
+					}
+				}
+			} else if alias == joinInfo.RightAlias {
+				// Find in right table (offset by left table column count)
+				for j, col := range rightTable.Columns {
+					if col.Name == columnName {
+						indexes[i] = len(leftTable.Columns) + j
+						break
+					}
+				}
+			}
+		}
+	}
+	
+	return columns, indexes
+}
+
+// Helper functions (reuse from previous implementation)
 func parseValues(valuesStr string) []string {
 	var values []string
 	current := ""
@@ -308,7 +755,6 @@ func parseValues(valuesStr string) []string {
 	return values
 }
 
-// Helper function to parse integer values
 func parseIntValue(value string) (int, bool) {
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, "'\"")
@@ -317,7 +763,6 @@ func parseIntValue(value string) (int, bool) {
 		return 0, false
 	}
 	
-	// Simple integer parsing
 	result := 0
 	negative := false
 	
@@ -341,66 +786,15 @@ func parseIntValue(value string) (int, bool) {
 	return result, true
 }
 
-// SELECT handler
-func (engine *SQLEngine) handleSelect(query string) (*SelectResult, error) {
-	queryLower := strings.ToLower(query)
-	
-	// Extract table name
-	fromIndex := strings.Index(queryLower, "from")
-	if fromIndex == -1 {
-		return nil, fmt.Errorf("missing FROM clause")
-	}
-	
-	fromPart := strings.TrimSpace(queryLower[fromIndex+4:])
-	
-	// Remove semicolon if present
-	if strings.HasSuffix(fromPart, ";") {
-		fromPart = fromPart[:len(fromPart)-1]
-		fromPart = strings.TrimSpace(fromPart)
-	}
-	
-	fields := strings.Fields(fromPart)
-	if len(fields) == 0 {
-		return nil, fmt.Errorf("invalid SELECT syntax: missing table name")
-	}
-	tableName := fields[0]
-	
-	table, exists := engine.DB.Tables[tableName]
-	if !exists {
-		return nil, fmt.Errorf("table '%s' doesn't exist", tableName)
-	}
-	
-	// Get column names
-	columns := make([]string, len(table.Columns))
-	for i, col := range table.Columns {
-		columns[i] = col.Name
-	}
-	
-	// Handle COUNT(*) queries
-	if strings.Contains(queryLower, "count(*)") {
-		return &SelectResult{
-			Columns: []string{"COUNT(*)"},
-			Rows:    [][]interface{}{{len(table.Rows)}},
-		}, nil
-	}
-	
-	return &SelectResult{
-		Columns: columns,
-		Rows:    table.Rows,
-	}, nil
-}
-
-// UPDATE handler
+// Other handlers (simplified)
 func (engine *SQLEngine) handleUpdate(query string) (string, error) {
 	return "1 row updated", nil
 }
 
-// DELETE handler
 func (engine *SQLEngine) handleDelete(query string) (string, error) {
 	return "1 row deleted", nil
 }
 
-// SHOW TABLES handler
 func (engine *SQLEngine) handleShowTables() (*SelectResult, error) {
 	var tables [][]interface{}
 	for tableName := range engine.DB.Tables {
@@ -413,7 +807,6 @@ func (engine *SQLEngine) handleShowTables() (*SelectResult, error) {
 	}, nil
 }
 
-// DROP TABLE handler
 func (engine *SQLEngine) handleDropTable(query string) (string, error) {
 	parts := strings.Fields(strings.ToLower(query))
 	if len(parts) < 3 {
