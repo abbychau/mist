@@ -3,7 +3,7 @@ package mist
 import (
 	"fmt"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/abbychau/mysql-parser/ast"
 )
 
 // ExecuteDelete processes a DELETE statement

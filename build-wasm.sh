@@ -10,9 +10,16 @@ mkdir -p "$OUTPUT_DIR"
 OUTPUT_WASM="$OUTPUT_DIR/mist.wasm"
 OUTPUT_JS="$OUTPUT_DIR/wasm_exec.js"
 
-# Build the WASM module from the wasm directory to avoid root dependencies
+# Build the WASM module from the wasm directory with optimizations
 echo "Building Mist WASM..."
-cd wasm && env GOOS=js GOARCH=wasm go build -o "../$OUTPUT_WASM" . && cd ..
+cd wasm && env GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o "../$OUTPUT_WASM" . && cd ..
+
+# Compress the WASM file if gzip is available
+if command -v gzip &> /dev/null; then
+    echo "Compressing WASM file..."
+    gzip -c "$OUTPUT_WASM" > "$OUTPUT_WASM.gz"
+    echo "✅ Compressed WASM created: $(ls -lh $OUTPUT_WASM.gz | awk '{print $5}')"
+fi
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then

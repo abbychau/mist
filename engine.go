@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/abbychau/mysql-parser/ast"
 )
 
 // TransactionData holds the state of an active transaction

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/parser/model"
-	"github.com/pingcap/tidb/pkg/parser/mysql"
+	"github.com/abbychau/mysql-parser/ast"
+	"github.com/abbychau/mysql-parser/mysql"
 )
 
 // parseColumnType converts TiDB column type to our internal type
@@ -214,30 +213,30 @@ func ExecuteCreateTable(db *Database, stmt *ast.CreateTableStmt) error {
 
 			if constraint.Refer.OnUpdate != nil {
 				switch constraint.Refer.OnUpdate.ReferOpt {
-				case model.ReferOptionCascade:
+				case ast.ReferOptionCascade:
 					onUpdate = FKActionCascade
-				case model.ReferOptionSetNull:
+				case ast.ReferOptionSetNull:
 					onUpdate = FKActionSetNull
-				case model.ReferOptionSetDefault:
+				case ast.ReferOptionSetDefault:
 					onUpdate = FKActionSetDefault
-				case model.ReferOptionNoAction:
+				case ast.ReferOptionNoAction:
 					onUpdate = FKActionNoAction
-				case model.ReferOptionRestrict:
+				case ast.ReferOptionRestrict:
 					onUpdate = FKActionRestrict
 				}
 			}
 
 			if constraint.Refer.OnDelete != nil {
 				switch constraint.Refer.OnDelete.ReferOpt {
-				case model.ReferOptionCascade:
+				case ast.ReferOptionCascade:
 					onDelete = FKActionCascade
-				case model.ReferOptionSetNull:
+				case ast.ReferOptionSetNull:
 					onDelete = FKActionSetNull
-				case model.ReferOptionSetDefault:
+				case ast.ReferOptionSetDefault:
 					onDelete = FKActionSetDefault
-				case model.ReferOptionNoAction:
+				case ast.ReferOptionNoAction:
 					onDelete = FKActionNoAction
-				case model.ReferOptionRestrict:
+				case ast.ReferOptionRestrict:
 					onDelete = FKActionRestrict
 				}
 			}

@@ -4,9 +4,8 @@ This directory contains the WebAssembly version of the Mist SQL engine for runni
 
 ## Files
 
-- `main.go` - JavaScript bindings and WASM entry point
-- `wasm_engine.go` - Standalone SQL engine optimized for WASM (no external dependencies)
-- `go.mod` - Minimal Go module configuration
+- `wasm_engine.go` - WASM wrapper around the main Mist engine with JavaScript bindings
+- `go.mod` - Go module configuration with main Mist dependency
 
 ## Building
 
@@ -24,28 +23,38 @@ cd wasm && GOOS=js GOARCH=wasm go build -o ../docs/mist.wasm .
 
 The compiled WASM binary is used by the web playground at `docs/playground.html`. It provides these JavaScript functions:
 
-- `mistExecute(query)` - Execute SQL query
-- `mistStartRecording()` - Start query recording  
-- `mistEndRecording()` - Stop query recording
-- `mistGetRecordedQueries()` - Get recorded queries
-- `mistShowTables()` - List tables
+- `executeSQL(query)` - Execute SQL query
+- `startRecording()` - Start query recording  
+- `stopRecording()` - Stop query recording
+- `getRecordedQueries()` - Get recorded queries
+- `clearRecordedQueries()` - Clear recorded queries
 
 ## Features
 
-- **Proper SQL INSERT VALUES parsing** - Correctly handles real data values
-- **Multiple row insertion support** - Single INSERT with multiple value tuples
-- **Type conversion** - Seamless Go ↔ JavaScript data conversion
-- **Thread-safe operations** - Concurrent query execution
-- **Zero external dependencies** - Pure Go standard library only
-- **Small binary size** - ~2.5MB WASM output
-- **Browser-compatible** - No system calls or file I/O
+Since this WASM engine now uses the main Mist engine, it supports **ALL** features available in the native version:
+
+- **Complete SQL Support** - All DDL and DML operations
+- **Transaction Support** - BEGIN, COMMIT, ROLLBACK, savepoints
+- **Advanced Features** - JOINs, subqueries, aggregate functions, indexes
+- **Data Types** - All supported types including DECIMAL, TIMESTAMP, ENUM
+- **Query Recording** - Full recording and playback capabilities
+- **Thread-safe Operations** - Concurrent query execution
+- **MySQL Compatibility** - Uses the same mysql-parser as native version
 
 ## Architecture
 
-This WASM engine is a **standalone implementation** that shares the same SQL parsing logic as the main Mist engine but avoids heavy dependencies like TiDB parser that don't compile to WASM. The engine provides:
+This WASM engine is now a **thin wrapper** around the main Mist SQL engine. It:
 
-- Basic SQL DDL (CREATE TABLE, DROP TABLE)  
-- Full DML support (INSERT, SELECT, UPDATE, DELETE)
-- Aggregate functions (COUNT, etc.)
-- SHOW TABLES functionality
-- Query recording capabilities
+1. Imports the main `github.com/abbychau/mist` package
+2. Creates a `mist.SQLEngine` instance
+3. Provides WASM-compatible result formatting
+4. Exports JavaScript functions for web usage
+
+### Benefits of Shared Engine
+
+- **Feature Parity** - WASM automatically gets all new features added to main engine
+- **Consistency** - Identical behavior between web playground and native Mist
+- **Reduced Maintenance** - No duplicate code to maintain
+- **Single Source of Truth** - All SQL logic centralized in main engine
+
+The WASM binary size remains small (~2.5MB) while providing the full power of the Mist SQL engine in the browser.

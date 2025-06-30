@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/abbychau/mysql-parser/ast"
 )
 
 // ExecuteAlterTable processes an ALTER TABLE statement

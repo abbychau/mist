@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/abbychau/mysql-parser/ast"
 )
 
 // parseDate attempts to parse various date formats and return YYYY-MM-DD format

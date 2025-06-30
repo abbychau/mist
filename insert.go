@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/parser/opcode"
+	"github.com/abbychau/mysql-parser/ast"
+	"github.com/abbychau/mysql-parser/opcode"
 )
 
 // ExecuteInsert processes an INSERT statement

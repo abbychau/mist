@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/abbychau/mysql-parser/ast"
 )
 
 // ExecuteCreateIndex processes a CREATE INDEX statement
@@ -32,9 +32,11 @@ func ExecuteCreateIndex(db *Database, stmt *ast.CreateIndexStmt) error {
 	var indexType IndexType
 	
 	// Use TiDB parser constants for proper detection
-	if stmt.KeyType == ast.IndexKeyTypeFullText { // FULLTEXT index
-		indexType = FullTextIndex // Full-text parsed-only index
-	} else if len(columnNames) == 1 {
+	// TODO: Check if IndexKeyTypeFullText exists in new parser
+	// if stmt.KeyType == ast.IndexKeyTypeFullText { // FULLTEXT index
+	//	indexType = FullTextIndex // Full-text parsed-only index
+	// } else 
+	if len(columnNames) == 1 {
 		indexType = HashIndex // Single-column functional index
 	} else {
 		indexType = CompositeIndex // Multi-column parsed-only index
@@ -124,14 +126,22 @@ func parseCreateIndexSQL(db *Database, sql string) error {
 	}
 	indexName = tokens[indexPos+1]
 	
-	// Extract table name (after ON)
+	// Extract table name and column part (after ON)
 	if len(tokens) <= onPos+1 {
 		return fmt.Errorf("missing table name")
 	}
-	tableName = tokens[onPos+1]
 	
-	// Extract column names (everything after table name should be in parentheses)
-	columnPart := strings.Join(tokens[onPos+2:], " ")
+	tableAndColumns := strings.Join(tokens[onPos+1:], " ")
+	
+	// Check if table name and columns are combined (e.g., "users(age)")
+	parenPos := strings.Index(tableAndColumns, "(")
+	if parenPos == -1 {
+		return fmt.Errorf("invalid CREATE INDEX syntax: columns must be in parentheses")
+	}
+	
+	tableName = tableAndColumns[:parenPos]
+	columnPart := tableAndColumns[parenPos:]
+	
 	if !strings.HasPrefix(columnPart, "(") || !strings.HasSuffix(columnPart, ")") {
 		return fmt.Errorf("invalid CREATE INDEX syntax: columns must be in parentheses")
 	}

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/parser/opcode"
+	"github.com/abbychau/mysql-parser/ast"
+	"github.com/abbychau/mysql-parser/opcode"
 )
 
 // JoinResult represents the result of a JOIN operation
@@ -38,8 +38,8 @@ func ExecuteSelectWithJoin(db *Database, stmt *ast.SelectStmt) (*SelectResult, e
 		joinResult.Rows = filteredRows
 	}
 
-	// Select specific columns
-	result, err := selectColumnsFromJoin(stmt.Fields.Fields, joinResult)
+	// Select specific columns (pass GROUP BY for aggregate handling)
+	result, err := selectColumnsFromJoin(stmt.Fields.Fields, joinResult, stmt.GroupBy, stmt.Having)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +525,7 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 }
 
 // selectColumnsFromJoin selects specific columns from join result
-func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult) (*SelectResult, error) {
+func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
 	// Handle SELECT *
 	if len(fields) == 1 && fields[0].WildCard != nil {
 		return &SelectResult{
@@ -536,7 +536,11 @@ func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult) (*
 
 	// Check if this contains aggregate functions
 	if hasAggregateFunction(fields) {
-		return executeAggregateOnJoinResult(fields, joinResult)
+		if groupBy != nil && len(groupBy.Items) > 0 {
+			return executeGroupByOnJoinResult(fields, joinResult, groupBy, having)
+		} else {
+			return executeAggregateOnJoinResult(fields, joinResult)
+		}
 	}
 
 	// Handle specific columns and expressions
@@ -608,6 +612,98 @@ func executeAggregateOnJoinResult(fields []*ast.SelectField, joinResult *JoinRes
 	return &SelectResult{
 		Columns: columnNames,
 		Rows:    [][]interface{}{values},
+	}, nil
+}
+
+// executeGroupByOnJoinResult executes GROUP BY with aggregates on join results
+func executeGroupByOnJoinResult(fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
+	// Build groups based on GROUP BY columns
+	groups := make(map[string][]int) // group key -> row indices
+	var groupKeys []string           // maintain order
+	
+	for rowIdx, row := range joinResult.Rows {
+		// Build group key from GROUP BY columns
+		var keyParts []string
+		for _, groupItem := range groupBy.Items {
+			val, err := evaluateExpressionOnJoinResult(groupItem.Expr, joinResult, row)
+			if err != nil {
+				return nil, fmt.Errorf("error evaluating GROUP BY expression: %v", err)
+			}
+			keyParts = append(keyParts, fmt.Sprintf("%v", val))
+		}
+		
+		groupKey := strings.Join(keyParts, "|")
+		if _, exists := groups[groupKey]; !exists {
+			groupKeys = append(groupKeys, groupKey)
+			groups[groupKey] = []int{}
+		}
+		groups[groupKey] = append(groups[groupKey], rowIdx)
+	}
+	
+	// Process each group
+	var resultColumns []string
+	var resultRows [][]interface{}
+	
+	for _, groupKey := range groupKeys {
+		rowIndices := groups[groupKey]
+		groupRows := make([][]interface{}, len(rowIndices))
+		for i, idx := range rowIndices {
+			groupRows[i] = joinResult.Rows[idx]
+		}
+		
+		// Create a temporary JoinResult for this group
+		groupJoinResult := &JoinResult{
+			Columns:    joinResult.Columns,
+			TableNames: joinResult.TableNames,
+			Rows:       groupRows,
+		}
+		
+		// Evaluate each field for this group
+		var groupRow []interface{}
+		for i, field := range fields {
+			if aggFunc, err := detectAggregateFunction(field); err != nil {
+				return nil, err
+			} else if aggFunc != nil {
+				// This is an aggregate function
+				aggValues, err := computeAggregatesOnJoinResult([]AggregateFunction{*aggFunc}, groupJoinResult)
+				if err != nil {
+					return nil, err
+				}
+				groupRow = append(groupRow, aggValues[0])
+				
+				// Set column name for first group
+				if len(resultColumns) <= i {
+					if aggFunc.IsStar {
+						resultColumns = append(resultColumns, fmt.Sprintf("%s(*)", aggFunc.Type.String()))
+					} else {
+						resultColumns = append(resultColumns, fmt.Sprintf("%s(%s)", aggFunc.Type.String(), aggFunc.Column))
+					}
+				}
+			} else {
+				// This is a regular column - should be in GROUP BY
+				val, err := evaluateExpressionOnJoinResult(field.Expr, joinResult, groupRows[0])
+				if err != nil {
+					return nil, fmt.Errorf("error evaluating GROUP BY field: %v", err)
+				}
+				groupRow = append(groupRow, val)
+				
+				// Set column name for first group
+				if len(resultColumns) <= i {
+					if field.AsName.L != "" {
+						resultColumns = append(resultColumns, field.AsName.L)
+					} else {
+						resultColumns = append(resultColumns, inferColumnNameFromExpression(field.Expr))
+					}
+				}
+			}
+		}
+		
+		resultRows = append(resultRows, groupRow)
+	}
+	
+	return &SelectResult{
+		Columns: resultColumns,
+		Rows:    resultRows,
 	}, nil
 }
 

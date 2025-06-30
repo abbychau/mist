@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist SQL Playground - Try MySQL-Compatible Queries Online</title>
+    <title>Mist SQL Playground - Complete MySQL Engine in WebAssembly</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,19 +15,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/sql/sql.min.js"></script>
     <style>
         .playground {
-            min-height: 100vh;
             background: var(--background);
-            padding-top: 80px;
+            padding-top: 0px;
         }
         
         .playground-container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            height: calc(100vh - 120px);
+            gap: 1rem;
+            height: calc(100vh - 70px);
         }
         
         .editor-panel, .results-panel {
@@ -41,7 +40,7 @@
         
         .panel-header {
             background: var(--surface-light);
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
@@ -82,11 +81,11 @@
         }
         
         .toolbar {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-top: 1px solid var(--border-color);
             background: var(--surface-light);
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             align-items: center;
         }
         
@@ -192,9 +191,73 @@
         .examples-sidebar {
             background: var(--surface-light);
             border-top: 1px solid var(--border-color);
-            padding: 1rem 1.5rem;
-            max-height: 200px;
+            padding: 0.75rem;
+            max-height: 350px;
             overflow-y: auto;
+        }
+        
+        .examples-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background-color: var(--surface);
+            margin: 2% auto;
+            padding: 0;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+        
+        .modal-header {
+            background: var(--surface-light);
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 1rem 1rem 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+        }
+        
+        .close {
+            color: var(--text-muted);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .close:hover {
+            color: var(--text-primary);
+        }
+        
+        .modal-body {
+            padding: 2rem;
         }
         
         .examples-title {
@@ -208,14 +271,16 @@
             background: var(--surface);
             border: 1px solid var(--border-color);
             border-radius: 0.25rem;
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
+            padding: 0.5rem;
             font-family: 'Inter', sans-serif;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
         
         .example-query:hover {
@@ -262,6 +327,65 @@
             text-align: center;
         }
         
+        /* Merged Header Styles */
+        .merged-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-banner {
+            background: linear-gradient(135deg, #00b894, #00a085);
+            border-bottom: 2px solid #00896c;
+            padding: 0.75rem 1rem;
+        }
+        
+        .banner-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .banner-text {
+            font-weight: 500;
+            color: white;
+            text-align: center;
+        }
+        
+        .download-btn {
+            background: white;
+            color: #00b894;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Adjust playground to account for fixed header */
+        .playground {
+            margin-top: 70px; /* Adjust based on actual header height */
+        }
+        
         @media (max-width: 1024px) {
             .playground-container {
                 grid-template-columns: 1fr;
@@ -271,24 +395,46 @@
             .editor-panel, .results-panel {
                 height: 400px;
             }
+            
+            .banner-content {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .playground {
+                margin-top: 70px; /* More space on mobile for wrapped content */
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <img src="mist-icon.svg" alt="Mist" class="logo">
-                <span class="brand-text">Mist Playground</span>
+    <!-- Merged Header: Navigation + Info Banner -->
+    <header class="merged-header">
+        <!-- Navigation Bar -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <img src="mist-icon.svg" alt="Mist" class="logo">
+                    <span class="brand-text">Mist Playground</span>
+                </div>
+                <div class="nav-links">
+                    <a href="index.html">Home</a>
+                    <a href="mysql_compatibility.html">MySQL Compatibility</a>
+                    <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
+                </div>
             </div>
-            <div class="nav-links">
-                <a href="index.html">Home</a>
-                <a href="mysql_compatibility.html">MySQL Compatibility</a>
-                <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
+        </nav>
+        
+        <!-- Info Banner -->
+        <div class="info-banner">
+            <div class="banner-content">
+                <span class="banner-text">✨ <strong>Web Demo:</strong> Full MIST SQL engine running in WebAssembly with complete MySQL compatibility.</span>
+                <a href="https://github.com/abbychau/mist" target="_blank" class="download-btn">
+                    📥 Download MIST
+                </a>
             </div>
         </div>
-    </nav>
+    </header>
 
     <!-- Playground -->
     <section class="playground">
@@ -308,22 +454,19 @@
                 
                 <div class="editor-content">
                     <textarea id="sqlEditor">-- Welcome to Mist SQL Playground!
--- Click "Execute Query" to run SQL commands or use Quick Examples below
+-- Now supports multiple SQL statements!
 
--- Create a users table
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE,
-    age INT
+    age INT,
+    salary DECIMAL(10,2)
 );
 
--- Insert some sample data
-INSERT INTO users (name, email, age) VALUES 
-    ('Alice Johnson', 'alice@example.com', 28),
-    ('Bob Smith', 'bob@example.com', 35);
+INSERT INTO users (name, email, age, salary) 
+VALUES ('Alice', 'alice@example.com', 30, 75000);
 
--- Query the data
 SELECT * FROM users;</textarea>
                 </div>
                 
@@ -333,21 +476,24 @@ SELECT * FROM users;</textarea>
                     </button>
                     <button class="btn-secondary" id="clearBtn">Clear</button>
                     <button class="btn-secondary" id="formatBtn">Format SQL</button>
+                    <button class="btn-secondary" onclick="openFeatureModal()">✨ Features</button>
                 </div>
                 
                 <div class="examples-sidebar">
-                    <div class="examples-title">Quick Examples</div>
-                    <div class="example-query" data-query="CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(255), age INT);">📝 Create Table</div>
-                    <div class="example-query" data-query="INSERT INTO users (name, email, age) VALUES ('John Doe', 'john@example.com', 28), ('Jane Smith', 'jane@example.com', 35);">➕ Insert Data</div>
-                    <div class="example-query" data-query="SELECT * FROM users;">📋 Select All</div>
-                    <div class="example-query" data-query="SELECT name, email FROM users WHERE age > 30;">🔍 WHERE Query</div>
-                    <div class="example-query" data-query="UPDATE users SET age = age + 1 WHERE name = 'John Doe';">✏️ Update Data</div>
-                    <div class="example-query" data-query="SELECT COUNT(*), AVG(age) as avg_age FROM users;">📊 Aggregates</div>
-                    <div class="example-query" data-query="CREATE TABLE orders (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, product VARCHAR(100), amount DECIMAL(10,2));">🛒 Orders Table</div>
-                    <div class="example-query" data-query="INSERT INTO orders (user_id, product, amount) VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99);">🛍️ Insert Orders</div>
-                    <div class="example-query" data-query="SELECT u.name, o.product, o.amount FROM users u JOIN orders o ON u.id = o.user_id;">🔗 JOIN Query</div>
-                    <div class="example-query" data-query="DELETE FROM users WHERE age < 25;">🗑️ Delete Data</div>
-                    <div class="example-query" data-query="SHOW TABLES;">📁 Show Tables</div>
+                    <div class="examples-title">Quick Examples (Full MySQL Engine)</div>
+                    <div class="examples-grid">
+                        <div class="example-query" data-query="CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(255), age INT, salary DECIMAL(10,2));">📝 Create Table</div>
+                        <div class="example-query" data-query="INSERT INTO users (name, email, age, salary) VALUES ('John Doe', 'john@example.com', 28, 65000), ('Jane Smith', 'jane@example.com', 35, 85000);">➕ Insert Data</div>
+                        <div class="example-query" data-query="SELECT COUNT(*) as total, AVG(salary) as avg_salary FROM users;">📊 Aggregates</div>
+                        <div class="example-query" data-query="SELECT UPPER(name) as name_upper, email FROM users WHERE age > 30;">🔧 Functions & WHERE</div>
+                        <div class="example-query" data-query="SELECT * FROM users WHERE name LIKE 'J%' ORDER BY age DESC;">🔍 LIKE & ORDER</div>
+                        <div class="example-query" data-query="CREATE TABLE orders (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, product VARCHAR(100), amount DECIMAL(10,2));">🛒 Orders Table</div>
+                        <div class="example-query" data-query="INSERT INTO orders (user_id, product, amount) VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99), (1, 'Keyboard', 79.99);">🛍️ Insert Orders</div>
+                        <div class="example-query" data-query="SELECT u.name, SUM(o.amount) as total FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id, u.name;">🔗 JOIN & GROUP BY</div>
+                        <div class="example-query" data-query="BEGIN; UPDATE users SET salary = salary * 1.1; SELECT * FROM users; ROLLBACK;">💰 Transaction</div>
+                        <div class="example-query" data-query="SHOW TABLES;">📁 Show Tables</div>
+                        <div class="example-query" data-query="CREATE INDEX idx_age ON users(age); SHOW INDEX FROM users;">🗂️ Create & Show Index</div>
+                    </div>
                 </div>
             </div>
             
@@ -363,7 +509,10 @@ SELECT * FROM users;</textarea>
                 <div class="results-content" id="resultsContent">
                     <div class="result-message">
                         👋 Welcome to Mist SQL Playground!<br><br>
-                        Execute a SQL query to see results here. This playground demonstrates Mist's MySQL-compatible syntax and features.
+                        This web demo runs the <strong>complete MIST SQL engine</strong> in WebAssembly with full MySQL compatibility.<br>
+                        <span id="loadingMessage">🔄 Loading full engine... (24MB WASM file)</span><br>
+                        Execute any SQL query to see results here. <br><br>
+                        <small><em>✨ Features: Transactions, JOINs, Subqueries, Aggregates, Functions, Indexes, and more!</em></small>
                     </div>
                 </div>
                 
@@ -383,31 +532,58 @@ SELECT * FROM users;</textarea>
         // Initialize WASM
         async function initWASM() {
             try {
+                console.log('Loading WASM module...');
+                document.getElementById('wasmStatusText').textContent = 'Loading WASM...';
+                
                 const go = new Go();
                 const result = await WebAssembly.instantiateStreaming(fetch('mist.wasm'), go.importObject);
                 go.run(result.instance);
                 
-                // Wait for WASM to be ready
+                // Wait for WASM functions to be available
                 let attempts = 0;
-                while (!window.mistReady && attempts < 50) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                while (!window.executeSQL && attempts < 100) { // Increased timeout for larger WASM
+                    await new Promise(resolve => setTimeout(resolve, 200)); // Longer intervals
                     attempts++;
+                    
+                    if (attempts % 10 === 0) {
+                        console.log(`Waiting for WASM functions... (${attempts}/100)`);
+                        document.getElementById('wasmStatusText').textContent = `Loading... ${Math.round(attempts/100*100)}%`;
+                    }
                 }
                 
-                if (window.mistReady) {
+                if (window.executeSQL) {
                     wasmReady = true;
                     document.getElementById('wasmStatus').className = 'status-indicator ready';
                     document.getElementById('wasmStatusText').textContent = 'WASM Ready';
                     
+                    // Hide loading message
+                    const loadingMessage = document.getElementById('loadingMessage');
+                    if (loadingMessage) {
+                        loadingMessage.style.display = 'none';
+                    }
+                    
                     console.log('Mist WASM engine loaded successfully!');
-                    console.log('Available functions:', Object.keys(window).filter(k => k.startsWith('mist')));
+                    console.log('Available functions:', ['executeSQL', 'startRecording', 'stopRecording', 'getRecordedQueries', 'clearRecordedQueries']);
                 } else {
-                    throw new Error('WASM initialization timeout');
+                    throw new Error('WASM initialization timeout - functions not available');
                 }
                 
             } catch (error) {
                 console.error('Failed to load WASM:', error);
-                document.getElementById('wasmStatusText').textContent = 'WASM Failed';
+                document.getElementById('wasmStatus').className = 'status-indicator error';
+                
+                if (error.message.includes('timeout')) {
+                    document.getElementById('wasmStatusText').textContent = 'WASM Loading... (Large file, please wait)';
+                    // Try one more time with extended timeout
+                    setTimeout(() => {
+                        if (!wasmReady) {
+                            document.getElementById('wasmStatusText').textContent = 'Using Demo Mode (WASM too large)';
+                            console.log('WASM failed to load, using demo mode');
+                        }
+                    }, 10000);
+                } else {
+                    document.getElementById('wasmStatusText').textContent = 'Demo Mode (WASM Failed)';
+                }
             }
         }
         
@@ -598,14 +774,19 @@ SELECT * FROM users;</textarea>
             const startTime = performance.now();
             
             try {
-                console.log('executeQuery: wasmReady =', wasmReady, 'mistExecute =', typeof window.mistExecute);
+                console.log('executeQuery: wasmReady =', wasmReady, 'executeSQL =', typeof window.executeSQL);
                 
                 // Use WASM engine if available, otherwise fall back to demo
-                if (wasmReady && window.mistExecute) {
+                if (wasmReady && window.executeSQL) {
                     console.log('Using WASM engine for query:', query);
                     try {
-                        const result = window.mistExecute(query);
-                        console.log('WASM result:', result);
+                        const jsonResult = window.executeSQL(query);
+                        console.log('WASM JSON result:', jsonResult);
+                        
+                        // Parse the JSON response
+                        const result = JSON.parse(jsonResult);
+                        console.log('Parsed result:', result);
+                        
                         const endTime = performance.now();
                         const duration = (endTime - startTime).toFixed(1);
                         
@@ -628,7 +809,7 @@ SELECT * FROM users;</textarea>
                         resultStatus.textContent = 'Error';
                     }
                 } else {
-                    console.log('Falling back to demo mode - wasmReady:', wasmReady, 'mistExecute:', typeof window.mistExecute);
+                    console.log('Falling back to demo mode - wasmReady:', wasmReady, 'executeSQL:', typeof window.executeSQL);
                     // Fall back to demo mode
                     setTimeout(() => {
                         try {
@@ -743,6 +924,117 @@ SELECT * FROM users;</textarea>
         
         // Also try to initialize immediately
         initWASM();
+    </script>
+
+
+    <!-- Features Modal -->
+    <div id="featureModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">✨ MIST SQL Features</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="background: var(--surface-light); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border-color); margin-bottom: 2rem;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        🚀 Complete MySQL Compatibility (Both Web & Native)
+                        <span style="background: #00b894; color: white; padding: 0.2rem 0.5rem; border-radius: 0.3rem; font-size: 0.8rem; font-weight: 600;">SHARED ENGINE</span>
+                    </h3>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">✅ Core Features:</h4>
+                        <ul style="color: var(--text-muted); line-height: 1.6; margin-left: 1rem; columns: 2; column-gap: 2rem;">
+                            <li>Complete DDL (CREATE/ALTER/DROP TABLE)</li>
+                            <li>Full DML (INSERT/SELECT/UPDATE/DELETE)</li>
+                            <li>All JOIN types (INNER, LEFT, RIGHT, CROSS)</li>
+                            <li>Aggregate functions (COUNT, SUM, AVG, MIN, MAX)</li>
+                            <li>35+ built-in functions (string, date, math)</li>
+                            <li>Subqueries and scalar queries</li>
+                            <li>Advanced operators (LIKE, IN, BETWEEN, EXISTS)</li>
+                            <li>Transactions with nested support and savepoints</li>
+                            <li>Index management (CREATE/DROP INDEX)</li>
+                            <li>UNION operations</li>
+                            <li>Foreign key constraints with cascade</li>
+                            <li>Auto-increment columns</li>
+                            <li>All MySQL data types</li>
+                            <li>Query recording and playback</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: #d1ecf1; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #17a2b8; margin-bottom: 1rem;">
+                        <strong style="color: #0c5460;">Architecture Update:</strong> 
+                        <span style="color: #0c5460;">The web playground now uses the same SQL engine as the native MIST library, providing identical functionality through WebAssembly compilation.</span>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                            <thead>
+                                <tr style="background: var(--surface-light); border-bottom: 2px solid var(--border-color);">
+                                    <th style="padding: 0.75rem; text-align: left; color: var(--text-primary); font-weight: 600;">Deployment</th>
+                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Features</th>
+                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Environment</th>
+                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Size</th>
+                                </tr>
+                            </thead>
+                            <tbody style="color: var(--text-muted);">
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 0.75rem; font-weight: 500;">Web Playground (WASM)</td>
+                                    <td style="padding: 0.75rem; text-align: center;">✅ Complete</td>
+                                    <td style="padding: 0.75rem; text-align: center;">Web Browser</td>
+                                    <td style="padding: 0.75rem; text-align: center;">~24MB</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 0.75rem; font-weight: 500;">Native Binary</td>
+                                    <td style="padding: 0.75rem; text-align: center;">✅ Complete + Daemon</td>
+                                    <td style="padding: 0.75rem; text-align: center;">Server/Desktop</td>
+                                    <td style="padding: 0.75rem; text-align: center;">~38MB</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="https://github.com/abbychau/mist" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">📥 Download MIST →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal functionality - placed after modals are in DOM
+        function openFeatureModal() {
+            document.getElementById('featureModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal when clicking on <span> (x)
+        document.querySelectorAll('.close').forEach(closeBtn => {
+            closeBtn.onclick = function() {
+                this.closest('.modal').style.display = 'none';
+            }
+        });
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+        // Handle ESC key to close modals
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                document.querySelectorAll('.modal').forEach(modal => {
+                    if (modal.style.display === 'block') {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

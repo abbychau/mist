@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/parser/opcode"
+	"github.com/abbychau/mysql-parser/ast"
+	"github.com/abbychau/mysql-parser/opcode"
 )
 
 // AggregateType represents different types of aggregate functions

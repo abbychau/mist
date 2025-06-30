@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/pingcap/tidb/pkg/parser"
-	"github.com/pingcap/tidb/pkg/parser/ast"
-	_ "github.com/pingcap/tidb/pkg/types/parser_driver"
+	"github.com/abbychau/mysql-parser"
+	"github.com/abbychau/mysql-parser/ast"
+	_ "github.com/abbychau/mysql-parser/parser_driver"
 )
 
 func main() {
