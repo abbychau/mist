@@ -383,6 +383,8 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 			return compareValues(leftVal, rightVal) > 0, nil
 		case opcode.GE:
 			return compareValues(leftVal, rightVal) >= 0, nil
+		case opcode.Regexp:
+			return evaluateRegexpOperation(leftVal, rightVal)
 		default:
 			return false, fmt.Errorf("unsupported binary operator in WHERE clause: %v", e.Op)
 		}
@@ -414,6 +416,9 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 		
 	case *ast.PatternLikeOrIlikeExpr:
 		return evaluateLikeExpressionOnJoinResult(e, joinResult, row)
+		
+	case *ast.PatternRegexpExpr:
+		return evaluateRegexpExpressionOnJoinResult(e, joinResult, row)
 		
 	case *ast.ExistsSubqueryExpr:
 		// Need access to database for EXISTS subqueries in JOIN context
@@ -470,6 +475,8 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 			leftBool := isTruthy(leftVal)
 			rightBool := isTruthy(rightVal)
 			return leftBool || rightBool, nil
+		case opcode.Regexp:
+			return evaluateRegexpOperation(leftVal, rightVal)
 		default:
 			return nil, fmt.Errorf("unsupported binary operator in expression evaluation: %v", e.Op)
 		}

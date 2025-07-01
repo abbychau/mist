@@ -637,6 +637,100 @@ func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, joinResult *Join
 
 // Pattern Matching Functions
 
+// evaluateRegexpOperation evaluates REGEXP/RLIKE pattern matching
+func evaluateRegexpOperation(value, pattern interface{}) (bool, error) {
+	// Handle NULL values - REGEXP with NULL returns NULL (false in boolean context)
+	if value == nil || pattern == nil {
+		return false, nil
+	}
+	
+	// Convert to strings
+	valueStr := fmt.Sprintf("%v", value)
+	patternStr := fmt.Sprintf("%v", pattern)
+	
+	// Compile and match the regular expression
+	matched, err := regexp.MatchString(patternStr, valueStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid REGEXP pattern: %v", err)
+	}
+	
+	return matched, nil
+}
+
+// evaluateRegexpExpression evaluates REGEXP pattern matching
+func evaluateRegexpExpression(regexpExpr *ast.PatternRegexpExpr, table *Table, row Row) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionInRow(regexpExpr.Expr, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the pattern
+	pattern, err := evaluateExpressionInRow(regexpExpr.Pattern, table, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Handle NULL values - REGEXP with NULL returns NULL (false in boolean context)
+	if value == nil || pattern == nil {
+		return false, nil
+	}
+	
+	// Convert to strings
+	valueStr := fmt.Sprintf("%v", value)
+	patternStr := fmt.Sprintf("%v", pattern)
+	
+	// Compile and match the regular expression
+	matched, err := regexp.MatchString(patternStr, valueStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid REGEXP pattern: %v", err)
+	}
+	
+	// Handle NOT REGEXP
+	if regexpExpr.Not {
+		return !matched, nil
+	}
+	
+	return matched, nil
+}
+
+// evaluateRegexpExpressionOnJoinResult evaluates REGEXP in JOIN context
+func evaluateRegexpExpressionOnJoinResult(regexpExpr *ast.PatternRegexpExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+	// Evaluate the expression being tested
+	value, err := evaluateExpressionOnJoinResult(regexpExpr.Expr, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Evaluate the pattern
+	pattern, err := evaluateExpressionOnJoinResult(regexpExpr.Pattern, joinResult, row)
+	if err != nil {
+		return false, err
+	}
+	
+	// Handle NULL values - REGEXP with NULL returns NULL (false in boolean context)
+	if value == nil || pattern == nil {
+		return false, nil
+	}
+	
+	// Convert to strings
+	valueStr := fmt.Sprintf("%v", value)
+	patternStr := fmt.Sprintf("%v", pattern)
+	
+	// Compile and match the regular expression
+	matched, err := regexp.MatchString(patternStr, valueStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid REGEXP pattern: %v", err)
+	}
+	
+	// Handle NOT REGEXP
+	if regexpExpr.Not {
+		return !matched, nil
+	}
+	
+	return matched, nil
+}
+
 // evaluateLikeExpression evaluates LIKE pattern matching
 func evaluateLikeExpression(likeExpr *ast.PatternLikeOrIlikeExpr, table *Table, row Row) (bool, error) {
 	// Evaluate the expression being tested

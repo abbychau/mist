@@ -144,6 +144,8 @@ func evaluateWhereConditionWithDB(expr ast.ExprNode, db *Database, table *Table,
 		return evaluateWhereConditionWithDB(e.Expr, db, table, row)
 	case *ast.PatternLikeOrIlikeExpr:
 		return evaluateLikeExpression(e, table, row)
+	case *ast.PatternRegexpExpr:
+		return evaluateRegexpExpression(e, table, row)
 	case *ast.ExistsSubqueryExpr:
 		return evaluateExistsExpression(e, db, table, row)
 	case *ast.UnaryOperationExpr:
@@ -181,6 +183,8 @@ func evaluateWhereCondition(expr ast.ExprNode, table *Table, row Row) (bool, err
 		return evaluateWhereCondition(e.Expr, table, row)
 	case *ast.PatternLikeOrIlikeExpr:
 		return evaluateLikeExpression(e, table, row)
+	case *ast.PatternRegexpExpr:
+		return evaluateRegexpExpression(e, table, row)
 	case *ast.ExistsSubqueryExpr:
 		// Need access to database for EXISTS subqueries
 		return false, fmt.Errorf("EXISTS subqueries require database context - use ExecuteSelectWithDatabase")
@@ -246,6 +250,8 @@ func evaluateBinaryOperation(expr *ast.BinaryOperationExpr, table *Table, row Ro
 		return compareValues(leftVal, rightVal) > 0, nil
 	case opcode.GE:
 		return compareValues(leftVal, rightVal) >= 0, nil
+	case opcode.Regexp:
+		return evaluateRegexpOperation(leftVal, rightVal)
 	default:
 		return false, fmt.Errorf("unsupported binary operator: %v", expr.Op)
 	}
@@ -504,6 +510,10 @@ func evaluateBinaryOperationValue(op opcode.Op, left, right interface{}) (interf
 		return isTruthy(left) && isTruthy(right), nil
 	case opcode.LogicOr:
 		return isTruthy(left) || isTruthy(right), nil
+
+	// Pattern matching operations
+	case opcode.Regexp:
+		return evaluateRegexpOperation(left, right)
 
 	default:
 		return nil, fmt.Errorf("unsupported binary operator: %v", op)
@@ -988,6 +998,8 @@ func evaluateBinaryOperationWithDB(expr *ast.BinaryOperationExpr, db *Database, 
 		return compareValues(leftVal, rightVal) > 0, nil
 	case opcode.GE:
 		return compareValues(leftVal, rightVal) >= 0, nil
+	case opcode.Regexp:
+		return evaluateRegexpOperation(leftVal, rightVal)
 	default:
 		return false, fmt.Errorf("unsupported binary operator: %v", expr.Op)
 	}

@@ -135,16 +135,19 @@
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
                 <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
-                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🔍 Pattern Matching</h3>
+                    <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🔍 Advanced Pattern Matching</h3>
                     <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
                         <li><strong>LIKE/NOT LIKE</strong> with % and _ wildcards</li>
-                        <li>Case-sensitive pattern matching</li>
+                        <li><strong>REGEXP/RLIKE/NOT REGEXP/NOT RLIKE</strong> regular expressions</li>
+                        <li>Full Go regex syntax (character classes, quantifiers, anchors)</li>
+                        <li>Case-sensitive and case-insensitive patterns</li>
                         <li>Escaped literal support (\%, \_)</li>
                         <li>Full WHERE and JOIN integration</li>
                     </ul>
                     <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
                         <code>WHERE name LIKE 'John%'</code><br>
-                        <code>WHERE email NOT LIKE '%@temp.com'</code>
+                        <code>WHERE email REGEXP '.*@company\.(com|org)'</code><br>
+                        <code>WHERE phone NOT RLIKE '^[0-9]{3}-[0-9]{3}-[0-9]{4}$'</code>
                     </div>
                 </div>
                 
@@ -355,7 +358,7 @@
                     <tr>
                         <td>WHERE clause</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, EXISTS, NOT EXISTS, functions, arithmetic expressions</td>
+                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, REGEXP, RLIKE, NOT REGEXP, NOT RLIKE, EXISTS, NOT EXISTS, functions, arithmetic expressions</td>
                         <td>EXISTS limited to non-correlated subqueries</td>
                     </tr>
                     <tr>
@@ -701,6 +704,13 @@
                         <td>Supports % and _ wildcards</td>
                     </tr>
                     <tr>
+                        <td>Regular Expressions</td>
+                        <td><code>REGEXP, RLIKE, NOT REGEXP, NOT RLIKE</code></td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>WHERE clauses, JOIN ON conditions</td>
+                        <td>Full Go regex syntax support</td>
+                    </tr>
+                    <tr>
                         <td>Set Operations</td>
                         <td><code>IN, NOT IN</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
@@ -971,14 +981,14 @@
                     <tr>
                         <td>WHERE Expressions</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, EXISTS/NOT EXISTS (basic), functions, arithmetic expressions</td>
-                        <td>Correlated subqueries, REGEXP</td>
+                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, EXISTS/NOT EXISTS (basic), functions, arithmetic expressions</td>
+                        <td>Correlated subqueries</td>
                     </tr>
                     <tr>
                         <td>JOIN Conditions</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, functions, arithmetic expressions</td>
-                        <td>EXISTS subqueries, REGEXP</td>
+                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, functions, arithmetic expressions</td>
+                        <td>EXISTS subqueries</td>
                     </tr>
                     <tr>
                         <td>ORDER BY</td>
@@ -1024,6 +1034,10 @@
                     <li><code>WHERE name LIKE 'John%'</code> ✅</li>
                     <li><code>WHERE name NOT LIKE 'Admin%'</code> ✅</li>
                     <li><code>WHERE name LIKE 'J_hn'</code> ✅ (underscore wildcard)</li>
+                    <li><code>WHERE email REGEXP '.*@company\.(com|org)'</code> ✅</li>
+                    <li><code>WHERE name RLIKE '^[A-Z].*'</code> ✅</li>
+                    <li><code>WHERE phone NOT REGEXP '^[0-9]{3}-[0-9]{3}-[0-9]{4}$'</code> ✅</li>
+                    <li><code>WHERE description REGEXP '(?i)important'</code> ✅ (case-insensitive)</li>
                     <li><code>WHERE NOT (price > 100 AND category = 'Premium')</code> ✅</li>
                 </ul>
                 
@@ -1040,13 +1054,6 @@
             </div>
 
             <h3>Remaining Limitations</h3>
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">❌ Advanced Pattern Matching</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE email REGEXP '.*@company\.com'</code> ❌</li>
-                    <li><code>WHERE name RLIKE '^[A-Z].*'</code> ❌</li>
-                </ul>
-            </div>
 
             <div style="margin: 1rem 0;">
                 <h4 style="color: var(--text-primary);">❌ Subqueries in SELECT</h4>
@@ -1089,7 +1096,6 @@
                 <h4 style="color: var(--text-primary);">⚠️ Manual Adjustments Needed</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
                     <li>Replace correlated subqueries with separate queries and application logic</li>
-                    <li>Replace REGEXP/RLIKE patterns with LIKE or application filtering</li>
                     <li>Remove stored procedures, triggers, and views</li>
                     <li>Add explicit transactions where needed</li>
                 </ul>

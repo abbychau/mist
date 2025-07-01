@@ -180,6 +180,35 @@ This document provides a comprehensive overview of MySQL syntax support in the M
 | `OR` | ✅ | WHERE clauses |
 | `NOT` | ⚠️ | Limited support |
 
+### Advanced Pattern Matching
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| `REGEXP` / `RLIKE` | ✅ | Full regular expression matching support |
+| `LIKE` with wildcards | ✅ | Pattern matching with % and _ wildcards |
+| `NOT LIKE` | ✅ | Negated pattern matching |
+| `NOT REGEXP` / `NOT RLIKE` | ✅ | Negated regular expression matching |
+
+✅ **Advanced Pattern Matching**
+
+```sql
+WHERE email REGEXP '.*@company\.com' ✅
+WHERE name RLIKE '^[A-Z].*' ✅
+WHERE description LIKE '%keyword%' ✅
+WHERE phone NOT LIKE '800-%' ✅
+WHERE email NOT REGEXP '@gmail\.com$' ✅
+```
+
+**Pattern Matching Features:**
+- **LIKE patterns**: `%` (matches any sequence), `_` (matches single character)
+- **REGEXP/RLIKE**: Full Go regex syntax support including:
+  - Character classes: `[a-z]`, `[0-9]`, `\d`, `\w`, `\s`
+  - Quantifiers: `*`, `+`, `?`, `{n}`, `{n,m}`
+  - Anchors: `^` (start), `$` (end)
+  - Groups: `(pattern)`, alternation `|`
+  - Case-insensitive: `(?i)pattern`
+  - Escaped literals: `\.`, `\+`, `\*`
+
 ### Date/Time Functions
 
 | Function | Status | Notes |
