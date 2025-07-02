@@ -422,9 +422,14 @@ func evaluateScalarSubquery(subqueryExpr *ast.SubqueryExpr, db *Database, outerT
 		return nil, fmt.Errorf("scalar subquery must be a SELECT statement")
 	}
 
-	// Execute the subquery - for now, we don't support correlated subqueries fully
-	// A full implementation would need to substitute outer references
-	result, err := ExecuteSelect(db, subquery)
+	// Execute the subquery with correlated context if outer context is provided
+	var result *SelectResult
+	var err error
+	if outerTable != nil {
+		result, err = ExecuteSelectWithCorrelatedContext(db, subquery, outerTable, outerRow)
+	} else {
+		result, err = ExecuteSelect(db, subquery)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error executing scalar subquery: %v", err)
 	}
@@ -1015,4 +1020,237 @@ func evaluateNotExpressionWithDB(notExpr *ast.UnaryOperationExpr, db *Database, 
 	
 	// Return the logical negation
 	return !result, nil
+}
+
+// ExecuteSelectWithCorrelatedContext executes a SELECT statement with access to outer table context for correlated subqueries
+func ExecuteSelectWithCorrelatedContext(db *Database, stmt *ast.SelectStmt, outerTable *Table, outerRow Row) (*SelectResult, error) {
+	// Handle simple SELECT from single table
+	if stmt.From == nil {
+		return nil, fmt.Errorf("SELECT without FROM is not supported yet")
+	}
+
+	// Get the table name - handle different table reference types
+	table, err := resolveTableReference(db, stmt.From.TableRefs.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if this is an aggregate query
+	if hasAggregateFunction(stmt.Fields.Fields) {
+		return executeAggregateQueryWithCorrelatedContext(table, stmt.Fields.Fields, stmt.Where, stmt.GroupBy, stmt.Having, stmt.Limit, db, outerTable, outerRow)
+	}
+
+	// Get rows from the table, potentially using indexes
+	rows, err := getRowsWithOptimizationAndCorrelatedContext(db, table, stmt.Where, outerTable, outerRow)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine which columns to select
+	var selectedColumns []string
+	var columnIndexes []int
+
+	// Check for SELECT *
+	if len(stmt.Fields.Fields) == 1 {
+		field := stmt.Fields.Fields[0]
+		if field.WildCard != nil {
+			// This is SELECT *
+			for i, col := range table.Columns {
+				selectedColumns = append(selectedColumns, col.Name)
+				columnIndexes = append(columnIndexes, i)
+			}
+		} else if colExpr, ok := field.Expr.(*ast.ColumnNameExpr); ok {
+			if colExpr.Name.Name.String() == "*" {
+				// Alternative way to detect SELECT *
+				for i, col := range table.Columns {
+					selectedColumns = append(selectedColumns, col.Name)
+					columnIndexes = append(columnIndexes, i)
+				}
+			}
+		}
+	}
+
+	// If not SELECT *, process individual columns/expressions
+	var expressions []ast.ExprNode
+	if len(selectedColumns) == 0 {
+		for _, field := range stmt.Fields.Fields {
+			// Generate column name (use alias if present, otherwise infer from expression)
+			var colName string
+			if field.AsName.L != "" {
+				colName = field.AsName.L
+			} else {
+				colName = inferColumnNameFromExpression(field.Expr)
+			}
+			
+			selectedColumns = append(selectedColumns, colName)
+			expressions = append(expressions, field.Expr)
+		}
+	}
+
+	// Build result rows
+	var resultRows [][]interface{}
+	for _, row := range rows {
+		var resultRow []interface{}
+		
+		if len(expressions) > 0 {
+			// Evaluate expressions for each column
+			for _, expr := range expressions {
+				value, err := evaluateExpressionInRowWithCorrelatedContext(expr, db, table, row, outerTable, outerRow)
+				if err != nil {
+					return nil, fmt.Errorf("error evaluating SELECT expression: %v", err)
+				}
+				resultRow = append(resultRow, value)
+			}
+		} else {
+			// Use column indexes for SELECT *
+			resultRow = make([]interface{}, len(columnIndexes))
+			for i, colIndex := range columnIndexes {
+				resultRow[i] = row.Values[colIndex]
+			}
+		}
+		
+		resultRows = append(resultRows, resultRow)
+	}
+
+	// Apply LIMIT clause if present
+	if stmt.Limit != nil {
+		resultRows = applyLimit(resultRows, stmt.Limit)
+	}
+
+	// Build final result
+	result := &SelectResult{
+		Columns: selectedColumns,
+		Rows:    resultRows,
+	}
+
+	return result, nil
+}
+
+// getRowsWithOptimizationAndCorrelatedContext gets rows from table with correlated context
+func getRowsWithOptimizationAndCorrelatedContext(db *Database, table *Table, whereExpr ast.ExprNode, outerTable *Table, outerRow Row) ([]Row, error) {
+	// If no WHERE clause, return all rows
+	if whereExpr == nil {
+		return table.GetRows(), nil
+	}
+
+	// Try to use index optimization for simple equality conditions
+	if indexedRows, used := tryIndexOptimization(db, table, whereExpr); used {
+		return indexedRows, nil
+	}
+
+	// Fall back to full table scan with correlated context
+	allRows := table.GetRows()
+	var filteredRows []Row
+
+	for _, row := range allRows {
+		match, err := evaluateWhereConditionWithCorrelatedContext(whereExpr, db, table, row, outerTable, outerRow)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating WHERE clause: %v", err)
+		}
+		if match {
+			filteredRows = append(filteredRows, row)
+		}
+	}
+
+	return filteredRows, nil
+}
+
+// evaluateWhereConditionWithCorrelatedContext evaluates a WHERE condition with correlated context
+func evaluateWhereConditionWithCorrelatedContext(expr ast.ExprNode, db *Database, table *Table, row Row, outerTable *Table, outerRow Row) (bool, error) {
+	switch e := expr.(type) {
+	case *ast.BinaryOperationExpr:
+		return evaluateBinaryOperationWithCorrelatedContext(e, db, table, row, outerTable, outerRow)
+	case *ast.ColumnNameExpr:
+		// Column reference - treat as boolean
+		colIndex := table.GetColumnIndex(e.Name.Name.String())
+		if colIndex == -1 {
+			return false, fmt.Errorf("column %s does not exist", e.Name.Name.String())
+		}
+		value := row.Values[colIndex]
+		return isTruthy(value), nil
+	case *ast.IsNullExpr:
+		return evaluateIsNullExpressionWithCorrelatedContext(e, table, row, outerTable, outerRow)
+	case *ast.BetweenExpr:
+		return evaluateBetweenExpressionWithCorrelatedContext(e, table, row, outerTable, outerRow)
+	case *ast.PatternInExpr:
+		return evaluateInExpressionWithCorrelatedContext(e, table, row, outerTable, outerRow)
+	case *ast.ParenthesesExpr:
+		// Handle parentheses by evaluating the inner expression
+		return evaluateWhereConditionWithCorrelatedContext(e.Expr, db, table, row, outerTable, outerRow)
+	case *ast.PatternLikeOrIlikeExpr:
+		return evaluateLikeExpressionWithCorrelatedContext(e, table, row, outerTable, outerRow)
+	case *ast.PatternRegexpExpr:
+		return evaluateRegexpExpressionWithCorrelatedContext(e, table, row, outerTable, outerRow)
+	case *ast.ExistsSubqueryExpr:
+		return evaluateExistsExpression(e, db, table, row)
+	case *ast.UnaryOperationExpr:
+		// Handle logical NOT
+		if e.Op == opcode.Not {
+			return evaluateNotExpressionWithCorrelatedContext(e, db, table, row, outerTable, outerRow)
+		}
+		return false, fmt.Errorf("unsupported unary operator in WHERE: %v", e.Op)
+	default:
+		return false, fmt.Errorf("unsupported WHERE expression type: %T", expr)
+	}
+}
+
+// evaluateExpressionInRowWithCorrelatedContext evaluates an expression with correlated context
+func evaluateExpressionInRowWithCorrelatedContext(expr ast.ExprNode, db *Database, table *Table, row Row, outerTable *Table, outerRow Row) (interface{}, error) {
+	switch e := expr.(type) {
+	case *ast.ColumnNameExpr:
+		columnName := e.Name.Name.String()
+		
+		// Handle qualified column names first (e.g., "u.id", "table.column")
+		if e.Name.Table.L != "" && outerTable != nil {
+			// Qualified column - this likely refers to the outer table in a correlated subquery
+			// In a correlated subquery, qualified references usually refer to the outer context
+			outerColIndex := outerTable.GetColumnIndex(columnName)
+			if outerColIndex != -1 {
+				return outerRow.Values[outerColIndex], nil
+			}
+			// If not found in outer table, fall through to try inner table
+		}
+		
+		// Try to resolve column in the current (inner) table
+		colIndex := table.GetColumnIndex(columnName)
+		if colIndex != -1 {
+			return row.Values[colIndex], nil
+		}
+		
+		// If not found in inner table and we have outer context, try outer table
+		if outerTable != nil {
+			outerColIndex := outerTable.GetColumnIndex(columnName)
+			if outerColIndex != -1 {
+				return outerRow.Values[outerColIndex], nil
+			}
+		}
+		
+		return nil, fmt.Errorf("column %s does not exist", columnName)
+	case ast.ValueExpr:
+		return e.GetValue(), nil
+	case *ast.FuncCallExpr:
+		return evaluateFunctionCall(e, table, row)
+	case *ast.CaseExpr:
+		return evaluateCaseExpression(e, table, row)
+	case *ast.FuncCastExpr:
+		return evaluateCastExpression(e, table, row)
+	case *ast.UnaryOperationExpr:
+		return evaluateUnaryOperation(e, table, row)
+	case *ast.BinaryOperationExpr:
+		// Handle binary operations with correlated context
+		leftVal, err := evaluateExpressionInRowWithCorrelatedContext(e.L, db, table, row, outerTable, outerRow)
+		if err != nil {
+			return nil, err
+		}
+		rightVal, err := evaluateExpressionInRowWithCorrelatedContext(e.R, db, table, row, outerTable, outerRow)
+		if err != nil {
+			return nil, err
+		}
+		return evaluateBinaryOperationValue(e.Op, leftVal, rightVal)
+	case *ast.SubqueryExpr:
+		// Handle scalar subqueries with correlated context
+		return evaluateScalarSubqueryWithCorrelatedContext(e, db, table, row, outerTable, outerRow)
+	default:
+		return nil, fmt.Errorf("unsupported expression type in evaluation: %T", expr)
+	}
 }

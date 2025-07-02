@@ -528,7 +528,7 @@ func evaluateFunctionCallOnJoinResult(funcCall *ast.FuncCallExpr, joinResult *Jo
 	// Evaluate arguments
 	var args []interface{}
 	for _, arg := range funcCall.Args {
-		value, err := evaluateExpressionOnJoinResult(arg, joinResult, row)
+		value, err := evaluateExpressionOnJoinResult(arg, nil, joinResult, row)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating function argument: %v", err)
 		}
@@ -588,14 +588,14 @@ func evaluateCaseExpression(caseExpr *ast.CaseExpr, table *Table, row Row) (inte
 }
 
 // evaluateCaseExpressionOnJoinResult evaluates a CASE expression in JOIN context
-func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, db *Database, joinResult *JoinResult, row []interface{}) (interface{}, error) {
 	// CASE expr WHEN value1 THEN result1 [WHEN value2 THEN result2 ...] [ELSE result] END
 	var caseValue interface{}
 	var err error
 	
 	if caseExpr.Value != nil {
 		// Simple CASE: CASE expr WHEN value THEN result
-		caseValue, err = evaluateExpressionOnJoinResult(caseExpr.Value, joinResult, row)
+		caseValue, err = evaluateExpressionOnJoinResult(caseExpr.Value, db, joinResult, row)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating CASE value: %v", err)
 		}
@@ -607,14 +607,14 @@ func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, joinResult *Join
 
 		if caseExpr.Value != nil {
 			// Simple CASE: compare with case value
-			whenValue, err := evaluateExpressionOnJoinResult(whenClause.Expr, joinResult, row)
+			whenValue, err := evaluateExpressionOnJoinResult(whenClause.Expr, db, joinResult, row)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating WHEN expression: %v", err)
 			}
 			conditionMet = (compareValues(caseValue, whenValue) == 0)
 		} else {
 			// Searched CASE: evaluate condition as boolean
-			conditionResult, err := evaluateWhereConditionOnJoinResult(whenClause.Expr, joinResult, row)
+			conditionResult, err := evaluateWhereConditionOnJoinResult(whenClause.Expr, db, joinResult, row)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating WHEN condition: %v", err)
 			}
@@ -623,13 +623,13 @@ func evaluateCaseExpressionOnJoinResult(caseExpr *ast.CaseExpr, joinResult *Join
 
 		if conditionMet {
 			// Return the THEN result
-			return evaluateExpressionOnJoinResult(whenClause.Result, joinResult, row)
+			return evaluateExpressionOnJoinResult(whenClause.Result, db, joinResult, row)
 		}
 	}
 
 	// If no WHEN clause matched, return ELSE result or NULL
 	if caseExpr.ElseClause != nil {
-		return evaluateExpressionOnJoinResult(caseExpr.ElseClause, joinResult, row)
+		return evaluateExpressionOnJoinResult(caseExpr.ElseClause, db, joinResult, row)
 	}
 
 	return nil, nil
@@ -697,13 +697,13 @@ func evaluateRegexpExpression(regexpExpr *ast.PatternRegexpExpr, table *Table, r
 // evaluateRegexpExpressionOnJoinResult evaluates REGEXP in JOIN context
 func evaluateRegexpExpressionOnJoinResult(regexpExpr *ast.PatternRegexpExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the expression being tested
-	value, err := evaluateExpressionOnJoinResult(regexpExpr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(regexpExpr.Expr, nil, joinResult, row)
 	if err != nil {
 		return false, err
 	}
 	
 	// Evaluate the pattern
-	pattern, err := evaluateExpressionOnJoinResult(regexpExpr.Pattern, joinResult, row)
+	pattern, err := evaluateExpressionOnJoinResult(regexpExpr.Pattern, nil, joinResult, row)
 	if err != nil {
 		return false, err
 	}
@@ -774,13 +774,13 @@ func evaluateLikeExpression(likeExpr *ast.PatternLikeOrIlikeExpr, table *Table, 
 // evaluateLikeExpressionOnJoinResult evaluates LIKE in JOIN context
 func evaluateLikeExpressionOnJoinResult(likeExpr *ast.PatternLikeOrIlikeExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the expression being tested
-	value, err := evaluateExpressionOnJoinResult(likeExpr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(likeExpr.Expr, nil, joinResult, row)
 	if err != nil {
 		return false, err
 	}
 	
 	// Evaluate the pattern
-	pattern, err := evaluateExpressionOnJoinResult(likeExpr.Pattern, joinResult, row)
+	pattern, err := evaluateExpressionOnJoinResult(likeExpr.Pattern, nil, joinResult, row)
 	if err != nil {
 		return false, err
 	}
@@ -908,12 +908,8 @@ func executeSubqueryForExists(db *Database, subquery *ast.SelectStmt, outerTable
 	// Create a new execution context that includes both the outer table context
 	// and access to all tables in the database
 	
-	// For now, we'll execute the subquery with access to the outer row context
-	// This is a simplified implementation - a full implementation would need
-	// to handle correlated subqueries properly by substituting outer references
-	
-	// Execute the subquery
-	result, err := ExecuteSelect(db, subquery)
+	// Execute the subquery with correlated context
+	result, err := ExecuteSelectWithCorrelatedContext(db, subquery, outerTable, outerRow)
 	if err != nil {
 		return nil, err
 	}
@@ -956,9 +952,9 @@ func evaluateNotExpression(notExpr *ast.UnaryOperationExpr, table *Table, row Ro
 }
 
 // evaluateNotExpressionOnJoinResult evaluates logical NOT in JOIN context
-func evaluateNotExpressionOnJoinResult(notExpr *ast.UnaryOperationExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+func evaluateNotExpressionOnJoinResult(notExpr *ast.UnaryOperationExpr, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the inner expression
-	result, err := evaluateWhereConditionOnJoinResult(notExpr.V, joinResult, row)
+	result, err := evaluateWhereConditionOnJoinResult(notExpr.V, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}

@@ -31,7 +31,7 @@ func ExecuteSelectWithJoin(db *Database, stmt *ast.SelectStmt) (*SelectResult, e
 
 	// Apply WHERE clause if present
 	if stmt.Where != nil {
-		filteredRows, err := filterJoinedRows(stmt.Where, joinResult)
+		filteredRows, err := filterJoinedRows(db, stmt.Where, joinResult)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating WHERE clause: %v", err)
 		}
@@ -39,7 +39,7 @@ func ExecuteSelectWithJoin(db *Database, stmt *ast.SelectStmt) (*SelectResult, e
 	}
 
 	// Select specific columns (pass GROUP BY for aggregate handling)
-	result, err := selectColumnsFromJoin(stmt.Fields.Fields, joinResult, stmt.GroupBy, stmt.Having)
+	result, err := selectColumnsFromJoin(db, stmt.Fields.Fields, joinResult, stmt.GroupBy, stmt.Having)
 	if err != nil {
 		return nil, err
 	}
@@ -315,11 +315,11 @@ func evaluateJoinExpression(expr ast.ExprNode, joinInfo *JoinInfo, leftRow, righ
 }
 
 // filterJoinedRows applies WHERE clause to joined results
-func filterJoinedRows(whereExpr ast.ExprNode, joinResult *JoinResult) ([][]interface{}, error) {
+func filterJoinedRows(db *Database, whereExpr ast.ExprNode, joinResult *JoinResult) ([][]interface{}, error) {
 	var filteredRows [][]interface{}
 
 	for _, row := range joinResult.Rows {
-		match, err := evaluateWhereConditionOnJoinResult(whereExpr, joinResult, row)
+		match, err := evaluateWhereConditionOnJoinResult(whereExpr, db, joinResult, row)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating WHERE clause on join result: %v", err)
 		}
@@ -332,27 +332,27 @@ func filterJoinedRows(whereExpr ast.ExprNode, joinResult *JoinResult) ([][]inter
 }
 
 // evaluateWhereConditionOnJoinResult evaluates a WHERE condition on a joined row
-func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, row []interface{}) (bool, error) {
+func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
 	switch e := expr.(type) {
 	case *ast.BinaryOperationExpr:
 		// Handle logical operators differently - they need boolean evaluation
 		switch e.Op {
 		case opcode.LogicAnd:
-			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, joinResult, row)
+			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, db, joinResult, row)
 			if err != nil {
 				return false, err
 			}
-			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, joinResult, row)
+			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, db, joinResult, row)
 			if err != nil {
 				return false, err
 			}
 			return leftResult && rightResult, nil
 		case opcode.LogicOr:
-			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, joinResult, row)
+			leftResult, err := evaluateWhereConditionOnJoinResult(e.L, db, joinResult, row)
 			if err != nil {
 				return false, err
 			}
-			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, joinResult, row)
+			rightResult, err := evaluateWhereConditionOnJoinResult(e.R, db, joinResult, row)
 			if err != nil {
 				return false, err
 			}
@@ -360,12 +360,12 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 		}
 		
 		// For comparison operators, evaluate as values
-		leftVal, err := evaluateExpressionOnJoinResult(e.L, joinResult, row)
+		leftVal, err := evaluateExpressionOnJoinResult(e.L, db, joinResult, row)
 		if err != nil {
 			return false, err
 		}
 
-		rightVal, err := evaluateExpressionOnJoinResult(e.R, joinResult, row)
+		rightVal, err := evaluateExpressionOnJoinResult(e.R, db, joinResult, row)
 		if err != nil {
 			return false, err
 		}
@@ -391,7 +391,7 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 
 	case *ast.ColumnNameExpr:
 		// For single column expressions, just check if they're truthy
-		val, err := evaluateExpressionOnJoinResult(e, joinResult, row)
+		val, err := evaluateExpressionOnJoinResult(e, db, joinResult, row)
 		if err != nil {
 			return false, err
 		}
@@ -402,17 +402,17 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 		return isTruthy(val), nil
 		
 	case *ast.IsNullExpr:
-		return evaluateIsNullExpressionOnJoinResult(e, joinResult, row)
+		return evaluateIsNullExpressionOnJoinResult(e, db, joinResult, row)
 		
 	case *ast.BetweenExpr:
-		return evaluateBetweenExpressionOnJoinResult(e, joinResult, row)
+		return evaluateBetweenExpressionOnJoinResult(e, db, joinResult, row)
 		
 	case *ast.PatternInExpr:
-		return evaluateInExpressionOnJoinResult(e, joinResult, row)
+		return evaluateInExpressionOnJoinResult(e, db, joinResult, row)
 		
 	case *ast.ParenthesesExpr:
 		// Handle parentheses by evaluating the inner expression
-		return evaluateWhereConditionOnJoinResult(e.Expr, joinResult, row)
+		return evaluateWhereConditionOnJoinResult(e.Expr, db, joinResult, row)
 		
 	case *ast.PatternLikeOrIlikeExpr:
 		return evaluateLikeExpressionOnJoinResult(e, joinResult, row)
@@ -427,7 +427,7 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 	case *ast.UnaryOperationExpr:
 		// Handle logical NOT
 		if e.Op == opcode.Not {
-			return evaluateNotExpressionOnJoinResult(e, joinResult, row)
+			return evaluateNotExpressionOnJoinResult(e, db, joinResult, row)
 		}
 		return false, fmt.Errorf("unsupported unary operator in WHERE clause: %v", e.Op)
 
@@ -437,16 +437,16 @@ func evaluateWhereConditionOnJoinResult(expr ast.ExprNode, joinResult *JoinResul
 }
 
 // evaluateExpressionOnJoinResult evaluates an expression in the context of a joined row
-func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+func evaluateExpressionOnJoinResult(expr ast.ExprNode, db *Database, joinResult *JoinResult, row []interface{}) (interface{}, error) {
 	switch e := expr.(type) {
 	case *ast.BinaryOperationExpr:
 		// Handle binary operations by evaluating both sides and applying the operator
-		leftVal, err := evaluateExpressionOnJoinResult(e.L, joinResult, row)
+		leftVal, err := evaluateExpressionOnJoinResult(e.L, db, joinResult, row)
 		if err != nil {
 			return nil, err
 		}
 
-		rightVal, err := evaluateExpressionOnJoinResult(e.R, joinResult, row)
+		rightVal, err := evaluateExpressionOnJoinResult(e.R, db, joinResult, row)
 		if err != nil {
 			return nil, err
 		}
@@ -518,13 +518,17 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 		return evaluateFunctionCallOnJoinResult(e, joinResult, row)
 
 	case *ast.CaseExpr:
-		return evaluateCaseExpressionOnJoinResult(e, joinResult, row)
+		return evaluateCaseExpressionOnJoinResult(e, db, joinResult, row)
 
 	case *ast.FuncCastExpr:
-		return evaluateCastExpressionOnJoinResult(e, joinResult, row)
+		return evaluateCastExpressionOnJoinResult(e, db, joinResult, row)
 
 	case *ast.UnaryOperationExpr:
-		return evaluateUnaryOperationOnJoinResult(e, joinResult, row)
+		return evaluateUnaryOperationOnJoinResult(e, db, joinResult, row)
+
+	case *ast.SubqueryExpr:
+		// Handle scalar subqueries in JOIN context
+		return evaluateScalarSubqueryOnJoinResult(e, db, joinResult, row)
 
 	default:
 		return nil, fmt.Errorf("unsupported expression type in join result evaluation: %T", expr)
@@ -532,7 +536,7 @@ func evaluateExpressionOnJoinResult(expr ast.ExprNode, joinResult *JoinResult, r
 }
 
 // selectColumnsFromJoin selects specific columns from join result
-func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
+func selectColumnsFromJoin(db *Database, fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
 	// Handle SELECT *
 	if len(fields) == 1 && fields[0].WildCard != nil {
 		return &SelectResult{
@@ -544,9 +548,9 @@ func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult, gr
 	// Check if this contains aggregate functions
 	if hasAggregateFunction(fields) {
 		if groupBy != nil && len(groupBy.Items) > 0 {
-			return executeGroupByOnJoinResult(fields, joinResult, groupBy, having)
+			return executeGroupByOnJoinResult(db, fields, joinResult, groupBy, having)
 		} else {
-			return executeAggregateOnJoinResult(fields, joinResult)
+			return executeAggregateOnJoinResult(db, fields, joinResult)
 		}
 	}
 
@@ -572,7 +576,7 @@ func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult, gr
 	for _, row := range joinResult.Rows {
 		var resultRow []interface{}
 		for _, expr := range expressions {
-			value, err := evaluateExpressionOnJoinResult(expr, joinResult, row)
+			value, err := evaluateExpressionOnJoinResult(expr, db, joinResult, row)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating JOIN SELECT expression: %v", err)
 			}
@@ -588,7 +592,7 @@ func selectColumnsFromJoin(fields []*ast.SelectField, joinResult *JoinResult, gr
 }
 
 // executeAggregateOnJoinResult executes aggregate functions on join results
-func executeAggregateOnJoinResult(fields []*ast.SelectField, joinResult *JoinResult) (*SelectResult, error) {
+func executeAggregateOnJoinResult(db *Database, fields []*ast.SelectField, joinResult *JoinResult) (*SelectResult, error) {
 	// Convert JoinResult to a format that aggregate functions can work with
 	var aggregates []AggregateFunction
 	var columnNames []string
@@ -623,7 +627,7 @@ func executeAggregateOnJoinResult(fields []*ast.SelectField, joinResult *JoinRes
 }
 
 // executeGroupByOnJoinResult executes GROUP BY with aggregates on join results
-func executeGroupByOnJoinResult(fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
+func executeGroupByOnJoinResult(db *Database, fields []*ast.SelectField, joinResult *JoinResult, groupBy *ast.GroupByClause, having *ast.HavingClause) (*SelectResult, error) {
 	// Build groups based on GROUP BY columns
 	groups := make(map[string][]int) // group key -> row indices
 	var groupKeys []string           // maintain order
@@ -632,7 +636,7 @@ func executeGroupByOnJoinResult(fields []*ast.SelectField, joinResult *JoinResul
 		// Build group key from GROUP BY columns
 		var keyParts []string
 		for _, groupItem := range groupBy.Items {
-			val, err := evaluateExpressionOnJoinResult(groupItem.Expr, joinResult, row)
+			val, err := evaluateExpressionOnJoinResult(groupItem.Expr, db, joinResult, row)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating GROUP BY expression: %v", err)
 			}
@@ -688,7 +692,7 @@ func executeGroupByOnJoinResult(fields []*ast.SelectField, joinResult *JoinResul
 				}
 			} else {
 				// This is a regular column - should be in GROUP BY
-				val, err := evaluateExpressionOnJoinResult(field.Expr, joinResult, groupRows[0])
+				val, err := evaluateExpressionOnJoinResult(field.Expr, db, joinResult, groupRows[0])
 				if err != nil {
 					return nil, fmt.Errorf("error evaluating GROUP BY field: %v", err)
 				}
@@ -892,9 +896,9 @@ func applyLimitToJoinRows(rows [][]interface{}, limit *ast.Limit) [][]interface{
 }
 
 // evaluateIsNullExpressionOnJoinResult evaluates IS NULL expressions on joined rows
-func evaluateIsNullExpressionOnJoinResult(expr *ast.IsNullExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+func evaluateIsNullExpressionOnJoinResult(expr *ast.IsNullExpr, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the expression being tested for null
-	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}
@@ -909,21 +913,21 @@ func evaluateIsNullExpressionOnJoinResult(expr *ast.IsNullExpr, joinResult *Join
 }
 
 // evaluateBetweenExpressionOnJoinResult evaluates BETWEEN expressions on joined rows
-func evaluateBetweenExpressionOnJoinResult(expr *ast.BetweenExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+func evaluateBetweenExpressionOnJoinResult(expr *ast.BetweenExpr, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the main expression
-	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}
 	
 	// Evaluate the lower bound
-	leftValue, err := evaluateExpressionOnJoinResult(expr.Left, joinResult, row)
+	leftValue, err := evaluateExpressionOnJoinResult(expr.Left, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}
 	
 	// Evaluate the upper bound
-	rightValue, err := evaluateExpressionOnJoinResult(expr.Right, joinResult, row)
+	rightValue, err := evaluateExpressionOnJoinResult(expr.Right, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}
@@ -942,16 +946,16 @@ func evaluateBetweenExpressionOnJoinResult(expr *ast.BetweenExpr, joinResult *Jo
 }
 
 // evaluateInExpressionOnJoinResult evaluates IN expressions on joined rows
-func evaluateInExpressionOnJoinResult(expr *ast.PatternInExpr, joinResult *JoinResult, row []interface{}) (bool, error) {
+func evaluateInExpressionOnJoinResult(expr *ast.PatternInExpr, db *Database, joinResult *JoinResult, row []interface{}) (bool, error) {
 	// Evaluate the expression being tested
-	value, err := evaluateExpressionOnJoinResult(expr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(expr.Expr, db, joinResult, row)
 	if err != nil {
 		return false, err
 	}
 	
 	// Check if value matches any of the values in the list
 	for _, listExpr := range expr.List {
-		listValue, err := evaluateExpressionOnJoinResult(listExpr, joinResult, row)
+		listValue, err := evaluateExpressionOnJoinResult(listExpr, db, joinResult, row)
 		if err != nil {
 			return false, err
 		}
@@ -973,9 +977,9 @@ func evaluateInExpressionOnJoinResult(expr *ast.PatternInExpr, joinResult *JoinR
 }
 
 // evaluateCastExpressionOnJoinResult evaluates CAST expressions in JOIN context
-func evaluateCastExpressionOnJoinResult(castExpr *ast.FuncCastExpr, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+func evaluateCastExpressionOnJoinResult(castExpr *ast.FuncCastExpr, db *Database, joinResult *JoinResult, row []interface{}) (interface{}, error) {
 	// Evaluate the expression being cast
-	value, err := evaluateExpressionOnJoinResult(castExpr.Expr, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(castExpr.Expr, db, joinResult, row)
 	if err != nil {
 		return nil, fmt.Errorf("error evaluating CAST expression: %v", err)
 	}
@@ -1019,9 +1023,9 @@ func evaluateCastExpressionOnJoinResult(castExpr *ast.FuncCastExpr, joinResult *
 }
 
 // evaluateUnaryOperationOnJoinResult evaluates unary operations in JOIN context
-func evaluateUnaryOperationOnJoinResult(unaryExpr *ast.UnaryOperationExpr, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+func evaluateUnaryOperationOnJoinResult(unaryExpr *ast.UnaryOperationExpr, db *Database, joinResult *JoinResult, row []interface{}) (interface{}, error) {
 	// Evaluate the operand
-	value, err := evaluateExpressionOnJoinResult(unaryExpr.V, joinResult, row)
+	value, err := evaluateExpressionOnJoinResult(unaryExpr.V, db, joinResult, row)
 	if err != nil {
 		return nil, err
 	}
@@ -1048,4 +1052,48 @@ func evaluateUnaryOperationOnJoinResult(unaryExpr *ast.UnaryOperationExpr, joinR
 	default:
 		return nil, fmt.Errorf("unsupported unary operator: %v", unaryExpr.Op)
 	}
+}
+
+// evaluateScalarSubqueryOnJoinResult evaluates a scalar subquery in JOIN context and returns a single value
+func evaluateScalarSubqueryOnJoinResult(subqueryExpr *ast.SubqueryExpr, db *Database, joinResult *JoinResult, row []interface{}) (interface{}, error) {
+	// Cast Query to SelectStmt
+	subquery, ok := subqueryExpr.Query.(*ast.SelectStmt)
+	if !ok {
+		return nil, fmt.Errorf("scalar subquery must be a SELECT statement")
+	}
+
+	// For JOIN context, we need to create a virtual table context that represents
+	// the current joined row state. This allows correlated subqueries to reference
+	// columns from the joined tables.
+	// TODO: Implement correlated subquery support using virtual table context
+	// virtualTable := createVirtualTableFromJoinResult(joinResult, row)
+	// virtualRow := Row{Values: row}
+
+	// Execute the subquery with the virtual table context
+	// For now, we execute it with database context but this could be enhanced
+	// to support correlated subqueries by substituting outer column references
+	result, err := ExecuteSelect(db, subquery)
+	if err != nil {
+		return nil, fmt.Errorf("error executing scalar subquery in JOIN context: %v", err)
+	}
+
+	// Scalar subquery must return exactly one row and one column
+	if len(result.Rows) == 0 {
+		return nil, nil // Returns NULL if no rows
+	}
+	
+	if len(result.Rows) > 1 {
+		return nil, fmt.Errorf("scalar subquery returned more than one row")
+	}
+	
+	if len(result.Rows[0]) == 0 {
+		return nil, fmt.Errorf("scalar subquery returned no columns")
+	}
+	
+	if len(result.Rows[0]) > 1 {
+		return nil, fmt.Errorf("scalar subquery returned more than one column")
+	}
+	
+	// Return the single value
+	return result.Rows[0][0], nil
 }

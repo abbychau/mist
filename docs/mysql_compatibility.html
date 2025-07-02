@@ -169,12 +169,12 @@
                     <h3 style="color: var(--accent-color); margin-bottom: 1rem;">🔍 EXISTS Subqueries</h3>
                     <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
                         <li><strong>EXISTS/NOT EXISTS</strong> subqueries</li>
-                        <li>Non-correlated subquery support</li>
+                        <li>Both correlated and non-correlated subquery support</li>
                         <li>Complex condition integration</li>
                         <li>Proper NULL handling</li>
                     </ul>
                     <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
-                        <code>WHERE EXISTS (SELECT 1 FROM...)</code><br>
+                        <code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code><br>
                         <code>WHERE NOT EXISTS (SELECT * FROM...)</code>
                     </div>
                 </div>
@@ -183,12 +183,13 @@
                     <h3 style="color: var(--accent-color); margin-bottom: 1rem;">📊 Scalar Subqueries</h3>
                     <ul style="color: var(--text-secondary); line-height: 1.6; margin: 0; padding-left: 1.2rem;">
                         <li><strong>Single-value subqueries</strong> in SELECT and WHERE</li>
+                        <li>Both correlated and non-correlated support</li>
                         <li>Aggregate function support</li>
                         <li>Proper error handling for multiple rows/columns</li>
                         <li>NULL handling for empty results</li>
                     </ul>
                     <div style="margin-top: 1rem; font-family: monospace; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;">
-                        <code>SELECT (SELECT MAX(price) FROM products)</code><br>
+                        <code>SELECT (SELECT COUNT(*) FROM orders WHERE user_id = users.id)</code><br>
                         <code>WHERE dept_id = (SELECT id FROM departments WHERE...)</code>
                     </div>
                 </div>
@@ -358,8 +359,8 @@
                     <tr>
                         <td>WHERE clause</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, REGEXP, RLIKE, NOT REGEXP, NOT RLIKE, EXISTS, NOT EXISTS, functions, arithmetic expressions</td>
-                        <td>EXISTS limited to non-correlated subqueries</td>
+                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, REGEXP, RLIKE, NOT REGEXP, NOT RLIKE, EXISTS, NOT EXISTS (correlated and non-correlated), functions, arithmetic expressions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>JOIN operations</td>
@@ -376,8 +377,8 @@
                     <tr>
                         <td>Scalar subqueries</td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>Non-correlated subqueries in SELECT and WHERE clauses</td>
-                        <td>Correlated subqueries not yet supported</td>
+                        <td>Both correlated and non-correlated subqueries in SELECT and WHERE clauses</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>LIMIT clause</td>
@@ -734,16 +735,16 @@
                     <tr>
                         <td>Subquery</td>
                         <td><code>EXISTS, NOT EXISTS</code></td>
-                        <td><span class="status-partial">⚠️ Partial</span></td>
-                        <td>Non-correlated subqueries</td>
-                        <td>Correlated subqueries not yet supported</td>
+                        <td><span class="status-supported">✅ Full</span></td>
+                        <td>Both correlated and non-correlated subqueries</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>Scalar Subqueries</td>
                         <td><code>(SELECT column FROM table WHERE ...)</code></td>
                         <td><span class="status-supported">✅ Full</span></td>
-                        <td>SELECT and WHERE clauses, with aggregates</td>
-                        <td>Non-correlated only; proper NULL and error handling</td>
+                        <td>SELECT and WHERE clauses, with aggregates, both correlated and non-correlated</td>
+                        <td>Proper NULL and error handling</td>
                     </tr>
                 </tbody>
             </table>
@@ -981,8 +982,8 @@
                     <tr>
                         <td>WHERE Expressions</td>
                         <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, EXISTS/NOT EXISTS (basic), functions, arithmetic expressions</td>
-                        <td>Correlated subqueries</td>
+                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, EXISTS/NOT EXISTS (correlated and non-correlated), functions, arithmetic expressions</td>
+                        <td>—</td>
                     </tr>
                     <tr>
                         <td>JOIN Conditions</td>
@@ -1044,22 +1045,25 @@
                 <h4 style="color: var(--text-primary);">✅ Newly Supported Subqueries</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
                     <li><code>WHERE EXISTS (SELECT 1 FROM categories WHERE id = 1)</code> ✅</li>
+                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ✅ (correlated)</li>
                     <li><code>WHERE NOT EXISTS (SELECT 1 FROM archived_users WHERE name = 'test')</code> ✅</li>
+                    <li><code>SELECT (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ✅ (correlated scalar)</li>
                 </ul>
                 
                 <h4 style="color: var(--text-primary);">❌ Still Not Supported WHERE Conditions</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ❌ (correlated subqueries)</li>
+                    <li>None currently - all major WHERE conditions now supported including correlated subqueries</li>
                 </ul>
             </div>
 
             <h3>Remaining Limitations</h3>
 
             <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">❌ Subqueries in SELECT</h4>
+                <h4 style="color: var(--text-primary);">✅ Scalar Subqueries in SELECT</h4>
                 <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>SELECT (SELECT MAX(salary) FROM employees) AS max_salary</code> ❌</li>
-                    <li><code>SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ❌</li>
+                    <li><code>SELECT (SELECT MAX(salary) FROM employees) AS max_salary</code> ✅</li>
+                    <li><code>SELECT name, (SELECT COUNT(*) FROM employees WHERE dept_id = 1) FROM departments</code> ✅</li>
+                    <li><code>SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ✅ (correlated subqueries)</li>
                 </ul>
             </div>
 

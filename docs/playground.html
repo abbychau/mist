@@ -490,6 +490,8 @@ SELECT * FROM users;</textarea>
                         <div class="example-query" data-query="CREATE TABLE orders (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, product VARCHAR(100), amount DECIMAL(10,2));">🛒 Orders Table</div>
                         <div class="example-query" data-query="INSERT INTO orders (user_id, product, amount) VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99), (1, 'Keyboard', 79.99);">🛍️ Insert Orders</div>
                         <div class="example-query" data-query="SELECT u.name, SUM(o.amount) as total FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id, u.name;">🔗 JOIN & GROUP BY</div>
+                        <div class="example-query" data-query="SELECT name, (SELECT MAX(salary) FROM users) AS max_salary FROM users LIMIT 1;">📊 Scalar Subquery</div>
+                        <div class="example-query" data-query="SELECT u.name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id);">🔗 Correlated EXISTS</div>
                         <div class="example-query" data-query="BEGIN; UPDATE users SET salary = salary * 1.1; SELECT * FROM users; ROLLBACK;">💰 Transaction</div>
                         <div class="example-query" data-query="SHOW TABLES;">📁 Show Tables</div>
                         <div class="example-query" data-query="CREATE INDEX idx_age ON users(age); SHOW INDEX FROM users;">🗂️ Create & Show Index</div>
@@ -949,8 +951,8 @@ SELECT * FROM users;</textarea>
                             <li>All JOIN types (INNER, LEFT, RIGHT, CROSS)</li>
                             <li>Aggregate functions (COUNT, SUM, AVG, MIN, MAX)</li>
                             <li>35+ built-in functions (string, date, math)</li>
-                            <li>Subqueries and scalar queries</li>
-                            <li>Advanced operators (LIKE, IN, BETWEEN, EXISTS)</li>
+                            <li>Scalar subqueries in SELECT and WHERE clauses (correlated and non-correlated)</li>
+                            <li>Advanced operators (LIKE, IN, BETWEEN, EXISTS with correlation)</li>
                             <li>Transactions with nested support and savepoints</li>
                             <li>Index management (CREATE/DROP INDEX)</li>
                             <li>UNION operations</li>
