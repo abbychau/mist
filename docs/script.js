@@ -93,16 +93,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Navbar background opacity on scroll
-window.addEventListener('scroll', function() {
-    const navbar = document.querySelector('.navbar');
-    if (window.scrollY > 50) {
-        navbar.style.background = 'rgba(15, 23, 42, 0.98)';
-    } else {
-        navbar.style.background = 'rgba(15, 23, 42, 0.95)';
-    }
-});
-
 // Intersection Observer for animations
 const observerOptions = {
     threshold: 0.1,
@@ -117,13 +107,6 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, observerOptions);
 
-// Observe elements for animation
-document.addEventListener('DOMContentLoaded', function() {
-    const animatedElements = document.querySelectorAll('.feature-card, .example-card, .install-option');
-    animatedElements.forEach(el => {
-        observer.observe(el);
-    });
-});
 
 // Add typing effect to hero title (optional enhancement)
 function typeWriter(element, text, speed = 100) {
@@ -244,46 +227,12 @@ function initSearch() {
     }
 }
 
-// Performance optimization: Lazy load images
-function lazyLoadImages() {
-    const images = document.querySelectorAll('img[data-src]');
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                img.src = img.dataset.src;
-                img.classList.remove('lazy');
-                imageObserver.unobserve(img);
-            }
-        });
-    });
-
-    images.forEach(img => imageObserver.observe(img));
-}
 
 // Initialize all functionality
 document.addEventListener('DOMContentLoaded', function() {
-    lazyLoadImages();
+    
     initSearch();
     
-    // Add some interactive elements
-    const hero = document.querySelector('.hero');
-    if (hero) {
-        // Add subtle mouse parallax effect to hero
-        hero.addEventListener('mousemove', function(e) {
-            const mouseX = e.clientX / window.innerWidth;
-            const mouseY = e.clientY / window.innerHeight;
-            
-            const moveX = (mouseX - 0.5) * 20;
-            const moveY = (mouseY - 0.5) * 20;
-            
-            hero.style.transform = `translate(${moveX}px, ${moveY}px)`;
-        });
-        
-        hero.addEventListener('mouseleave', function() {
-            hero.style.transform = 'translate(0, 0)';
-        });
-    }
 });
 
 // Add keyboard navigation support
