@@ -1,1061 +1,524 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MySQL Compatibility Reference - Mist Database</title>
+    <title>MySQL Compatibility - Mist Database</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
     <style>
-        .compatibility-table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 1rem 0; 
-            background: var(--bg-secondary);
-            border-radius: 0.5rem;
+        .compat-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
         }
-        .compatibility-table th, 
-        .compatibility-table td { 
-            padding: 0.75rem; 
-            text-align: left; 
-            border-bottom: 1px solid var(--border-color); 
+
+        .compat-table th,
+        .compat-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
         }
-        .compatibility-table th { 
-            background: var(--bg-tertiary); 
-            font-weight: 600; 
-            color: var(--text-primary);
-        }
-        .compatibility-table td {
-            color: var(--text-secondary);
-        }
-        .status-supported { color: #22c55e; font-weight: 600; }
-        .status-partial { color: #f59e0b; font-weight: 600; }
-        .status-not-supported { color: #ef4444; font-weight: 600; }
-        .status-parsed { color: #8b5cf6; font-weight: 600; }
-        .compatibility-section {
-            margin: 2rem 0;
-            padding: 2rem;
-            background: #FFF;
-            border-radius: 0.75rem;
-            border: 1px solid var(--border-color);
-        }
-        .compatibility-legend {
-            display: flex;
-            gap: 2rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .legend-icon {
-            font-size: 1.2rem;
+
+        .compat-table th {
+            background: var(--muted);
+            font-size: 0.8125rem;
             font-weight: 600;
+            color: var(--muted-foreground);
         }
-        .back-nav {
-            margin: 2rem 0;
+
+        .compat-table td {
+            font-size: 0.875rem;
+            color: var(--foreground);
         }
-        .back-nav a {
-            color: var(--accent-color);
-            text-decoration: none;
-            font-weight: 500;
+
+        .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            padding: 0.125rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
         }
-        .back-nav a:hover {
-            text-decoration: underline;
+
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .warning {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .info {
+            background: #e0f2fe;
+            color: #075985;
+        }
+
+        .compat-section {
+            margin-bottom: 3rem;
+        }
+
+        .compat-section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .compat-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--muted-foreground);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
     </style>
 </head>
+
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <img src="mist-icon.svg" alt="Mist" class="logo">
-                <span class="brand-text">Mist</span>
+    <div class="layout-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="mist-icon.svg" alt="Mist" class="sidebar-logo">
+                <span class="sidebar-brand-text">Mist</span>
             </div>
-            <div class="nav-links">
-                <a href="index.html">Home</a>
-                <a href="index.html#features">Features</a>
-                <a href="index.html#installation">Installation</a>
-                <a href="index.html#usage">Usage</a>
-                <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
-            </div>
-        </div>
-    </nav>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="sidebar-link">
+                    <i class="fa-solid fa-house"></i> Home
+                </a>
+                <a href="#" class="sidebar-link active">
+                    <i class="fa-solid fa-check-double"></i> Compatibility
+                </a>
+                <a href="playground.html" class="sidebar-link">
+                    <i class="fa-solid fa-play"></i> Playground
+                </a>
+                <a href="https://github.com/abbychau/mist" target="_blank" class="sidebar-link">
+                    <i class="fa-brands fa-github"></i> GitHub
+                </a>
+            </nav>
+        </aside>
 
-    <!-- Main Content -->
-    <main class="container" style="padding-top: 6rem; max-width: 1200px;">
-        <div class="back-nav">
-            <a href="index.html">← Back to Mist Documentation</a>
-        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container" style="max-width: 1000px; padding-top: 4rem;">
+                <div class="compat-section">
+                    <h1>MySQL Compatibility Reference</h1>
+                    <p
+                        style="color: var(--muted-foreground); font-size: 1.125rem; margin-top: 0.5rem; margin-bottom: 2rem;">
+                        Mist targets full syntax compatibility with MySQL 8.0, powered by the TiDB SQL parser.
+                    </p>
 
-        <h1 style="color: var(--text-primary); margin-bottom: 1rem;">MySQL Compatibility Reference</h1>
-        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
-            Comprehensive overview of MySQL syntax support in the Mist database engine. 
-            Features are categorized by implementation status with detailed notes on limitations and usage.
-        </p>
+                    <div
+                        style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 3rem; padding: 1rem; background: var(--muted); border-radius: var(--radius);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                            <span class="status-badge success">✅ Full</span> Supported
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                            <span class="status-badge warning">⚠️ Partial</span> Limited
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                            <span class="status-badge info">📝 Parsed</span> No logic
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                            <span class="status-badge danger">❌ None</span> Unsupported
+                        </div>
+                    </div>
 
-        <div class="compatibility-legend">
-            <div class="legend-item">
-                <span class="legend-icon status-supported">✅</span>
-                <span>Fully Supported - Complete implementation with all major features</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-icon status-partial">⚠️</span>
-                <span>Partially Supported - Basic implementation with some limitations</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-icon status-not-supported">❌</span>
-                <span>Not Supported - Not implemented</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-icon status-parsed">📝</span>
-                <span>Parsed Only - Syntax accepted but not enforced/executed</span>
-            </div>
-        </div>
+                    <h3>Table Operations (DDL)</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Statement</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Notes / Supported Syntax</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CREATE TABLE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>AUTO_INCREMENT, PRIMARY KEY, UNIQUE, NOT NULL, FOREIGN KEY, ENUM, SET, DATE, YEAR
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>ALTER TABLE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>ADD COLUMN, DROP COLUMN, MODIFY COLUMN, RENAME COLUMN</td>
+                            </tr>
+                            <tr>
+                                <td>DROP TABLE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>IF EXISTS support</td>
+                            </tr>
+                            <tr>
+                                <td>TRUNCATE TABLE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Resets AUTO_INCREMENT counters</td>
+                            </tr>
+                            <tr>
+                                <td>CREATE INDEX</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Unique and non-unique B-Tree indexes</td>
+                            </tr>
+                            <tr>
+                                <td>DROP INDEX</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Removes index from table</td>
+                            </tr>
+                            <tr>
+                                <td>RENAME TABLE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Renames existing tables</td>
+                            </tr>
+                            <tr>
+                                <td>SET</td>
+                                <td><span class="status-badge info">Parsed</span></td>
+                                <td>Variable setting syntax (no execution logic)</td>
+                            </tr>
+                            <tr>
+                                <td>LOCK TABLES</td>
+                                <td><span class="status-badge info">Parsed</span></td>
+                                <td>Read/Write lock syntax (no execution logic)</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
+                    <h3>Data Manipulation (DML)</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Statement</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Supported Features</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>SELECT</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>DISTINCT, Aliases, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET</td>
+                            </tr>
+                            <tr>
+                                <td>INSERT / REPLACE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Multi-row, INSERT..SELECT, REPLACE INTO, ON DUPLICATE KEY UPDATE</td>
+                            </tr>
+                            <tr>
+                                <td>UPDATE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Single table updates with WHERE clause</td>
+                            </tr>
+                            <tr>
+                                <td>DELETE</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Single table deletes with WHERE clause</td>
+                            </tr>
+                            <tr>
+                                <td>UNION</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>UNION and UNION ALL across multiple SELECTs</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-        <!-- DDL Section -->
-        <div class="compatibility-section">
-            <h2>Data Definition Language (DDL)</h2>
-            
-            <h3>Table Operations</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Statement</th>
-                        <th>Status</th>
-                        <th>Features</th>
-                        <th>Limitations</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>CREATE TABLE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Constraints, foreign keys, auto-increment, ENUM, DATE types</td>
-                        <td>No temporary tables, partitioning</td>
-                    </tr>
-                    <tr>
-                        <td><code>ALTER TABLE ADD COLUMN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Add columns with constraints and defaults</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>ALTER TABLE DROP COLUMN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Remove columns, auto-drop related indexes</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>ALTER TABLE MODIFY COLUMN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Change column type with data conversion</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>DROP TABLE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Full support with foreign key constraint checking</td>
-                        <td>Supports IF EXISTS clause</td>
-                    </tr>
-                    <tr>
-                        <td><code>TRUNCATE TABLE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Reset table data and auto-increment counter</td>
-                        <td>Validates foreign key constraints</td>
-                    </tr>
-                </tbody>
-            </table>
+                    <h3>Transactions</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Feature</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>COMMIT / ROLLBACK</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>ACID guarantees for in-memory operations</td>
+                            </tr>
+                            <tr>
+                                <td>Nested Transactions</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Recursive START TRANSACTION / BEGIN support</td>
+                            </tr>
+                            <tr>
+                                <td>Savepoints</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>SAVEPOINT and ROLLBACK TO SAVEPOINT</td>
+                            </tr>
+                            <tr>
+                                <td>Isolation Levels</td>
+                                <td><span class="status-badge info">Parsed</span></td>
+                                <td>Syntax recognized but defaults to serializable</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-            <h3>Index Operations</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Statement</th>
-                        <th>Status</th>
-                        <th>Features</th>
-                        <th>Limitations</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>CREATE INDEX</code></td>
-                        <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Single-column hash indexes (functional), composite indexes (parsed), full-text indexes (parsed)</td>
-                        <td>Composite and full-text indexes parsed but not functional</td>
-                    </tr>
-                    <tr>
-                        <td><code>DROP INDEX</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Remove indexes</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>SHOW INDEX FROM table</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Display table indexes</td>
-                        <td>—</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                    <h3>Aggregates & Grouping</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Feature</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Aggregations</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>COUNT, SUM, MIN, MAX, AVG</td>
+                            </tr>
+                            <tr>
+                                <td>Grouping</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>GROUP BY (multi-column), HAVING clause</td>
+                            </tr>
+                            <tr>
+                                <td>Distinct Count</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td><code>COUNT(DISTINCT column)</code> support</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-        <!-- DML Section -->
-        <div class="compatibility-section">
-            <h2>Data Manipulation Language (DML)</h2>
-            
-            <h3>INSERT Operations</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>INSERT INTO ... VALUES</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Single and multiple row inserts</td>
-                    </tr>
-                    <tr>
-                        <td><code>INSERT INTO ... (columns) VALUES</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Column-specific inserts</td>
-                    </tr>
-                    <tr>
-                        <td>Auto-increment handling</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Automatic ID generation</td>
-                    </tr>
-                    <tr>
-                        <td>Default value processing</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Including CURRENT_TIMESTAMP</td>
-                    </tr>
-                    <tr>
-                        <td><code>INSERT ... SELECT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Complete support with JOIN, aggregates, and complex queries</td>
-                    </tr>
-                    <tr>
-                        <td><code>INSERT ... ON DUPLICATE KEY UPDATE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>With VALUES() function and expression support</td>
-                    </tr>
-                </tbody>
-            </table>
+                    <h3>Functions & Expressions</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Type</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Notable Examples</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Calculated Columns</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td><code>price * quantity</code>, <code>age + 1</code>, <code>salary / 12</code></td>
+                            </tr>
+                            <tr>
+                                <td>String Functions</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>UPPER, LOWER, CONCAT, LENGTH, SUBSTRING</td>
+                            </tr>
+                            <tr>
+                                <td>Conditional</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>IF(expr, v1, v2), CASE..WHEN..THEN..ELSE..END</td>
+                            </tr>
+                            <tr>
+                                <td>Temporal</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>NOW(), CURDATE(), YEAR(), MONTH(), DAY()</td>
+                            </tr>
+                            <tr>
+                                <td>Mathematical</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>ROUND, ABS, CEIL, FLOOR</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-            <h3>SELECT Operations</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>Supported Syntax</th>
-                        <th>Limitations</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Basic SELECT</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Column names, wildcards (*), aliases, functions, arithmetic expressions, CASE statements</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>WHERE clause</td>
-                        <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>=, !=, &lt;, &lt;=, &gt;, &gt;=, AND, OR, NOT, IS NULL, IS NOT NULL, BETWEEN, NOT BETWEEN, IN, NOT IN, LIKE, NOT LIKE, REGEXP, RLIKE, NOT REGEXP, NOT RLIKE, EXISTS, NOT EXISTS (correlated and non-correlated), functions, arithmetic expressions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>JOIN operations</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>INNER, LEFT, RIGHT, CROSS joins with ON conditions including functions and expressions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Subqueries in FROM</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Virtual table creation from SELECT statements</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Scalar subqueries</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Both correlated and non-correlated subqueries in SELECT and WHERE clauses</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>LIMIT clause</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>LIMIT count and LIMIT offset, count</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>GROUP BY</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Works with aggregate functions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>ORDER BY</td>
-                        <td><span class="status-partial">⚠️ Basic</span></td>
-                        <td>Basic column ordering</td>
-                        <td>Limited implementation, may vary</td>
-                    </tr>
-                    <tr>
-                        <td>HAVING</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Aggregate function conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>UNION</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>UNION and UNION ALL with duplicate handling</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Window functions</td>
-                        <td><span class="status-not-supported">❌ None</span></td>
-                        <td>—</td>
-                        <td>ROW_NUMBER(), RANK(), etc. not implemented</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                    <h3>Filtering & Search</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Feature</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Syntax Support</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>WHERE Clause</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>AND, OR, NOT, IN, BETWEEN, IS NULL</td>
+                            </tr>
+                            <tr>
+                                <td>Pattern Matching</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>LIKE (with % and _), NOT LIKE, REGEXP, RLIKE</td>
+                            </tr>
+                            <tr>
+                                <td>Scalar Subqueries</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Non-correlated subqueries in SELECT and WHERE</td>
+                            </tr>
+                            <tr>
+                                <td>Correlated Subqueries</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Access outer scope columns from inner query</td>
+                            </tr>
+                            <tr>
+                                <td>Existential</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>EXISTS (SELECT..), NOT EXISTS (SELECT..)</td>
+                            </tr>
+                            <tr>
+                                <td>Case Sensitivity</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Case-insensitive regex with <code>(?i)</code> prefix</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-        <!-- Data Types Section -->
-        <div class="compatibility-section">
-            <h2>Data Types</h2>
-            
-            <h3>Numeric Types</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Mapping</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>TINYINT, SMALLINT, INT, BIGINT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>INT</td>
-                        <td>All integer types map to INT</td>
-                    </tr>
-                    <tr>
-                        <td><code>DECIMAL(p,s)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>DECIMAL</td>
-                        <td>With precision and scale</td>
-                    </tr>
-                    <tr>
-                        <td><code>FLOAT, DOUBLE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>FLOAT</td>
-                        <td>DOUBLE maps to FLOAT</td>
-                    </tr>
-                    <tr>
-                        <td><code>BIT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>BOOL</td>
-                        <td>Maps to boolean</td>
-                    </tr>
-                </tbody>
-            </table>
+                    <h3>Joins & Sets</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Feature</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>JOIN Types</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>INNER JOIN, LEFT JOIN, RIGHT JOIN, CROSS JOIN</td>
+                            </tr>
+                            <tr>
+                                <td>JOIN Conditions</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Standard <code>ON</code> and <code>USING</code> clauses</td>
+                            </tr>
+                            <tr>
+                                <td>Self Joins</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>Supported with table aliasing</td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-            <h3>String Types</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Mapping</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>CHAR(n), VARCHAR(n)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>VARCHAR</td>
-                        <td>With length validation</td>
-                    </tr>
-                    <tr>
-                        <td><code>TEXT, LONGTEXT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>TEXT</td>
-                        <td>All text types map to TEXT</td>
-                    </tr>
-                    <tr>
-                        <td><code>ENUM('val1','val2')</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>ENUM</td>
-                        <td>With value validation</td>
-                    </tr>
-                    <tr>
-                        <td><code>BINARY, VARBINARY</code></td>
-                        <td><span class="status-partial">⚠️ Basic</span></td>
-                        <td>VARCHAR</td>
-                        <td>No binary handling</td>
-                    </tr>
-                    <tr>
-                        <td><code>SET('val1','val2')</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>SET</td>
-                        <td>Comma-separated values with validation</td>
-                    </tr>
-                </tbody>
-            </table>
+                    <div
+                        style="margin-top: 3rem; padding: 1.5rem; background: var(--muted); border-radius: var(--radius); border: 1px solid var(--border);">
+                        <h3 style="margin-top: 0;">Migration from MySQL</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <div>
+                                <h4
+                                    style="font-size: 0.875rem; color: #166534; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fa-solid fa-circle-check"></i> Supported
+                                </h4>
+                                <ul
+                                    style="font-size: 0.8125rem; color: var(--muted-foreground); margin-top: 0.75rem; list-style: disk; margin-left: 1rem; line-height: 1.6;">
+                                    <li>Standard CRUD and complex WHERE conditions</li>
+                                    <li>Foreign keys with ON DELETE CASCADE</li>
+                                    <li>Complex reporting with GROUP BY and HAVING</li>
+                                    <li>Advanced JOINs with complex ON conditions</li>
+                                    <li>UNION operations for result sets</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4
+                                    style="font-size: 0.875rem; color: #854d0e; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fa-solid fa-circle-exclamation"></i> Action Required
+                                </h4>
+                                <ul
+                                    style="font-size: 0.8125rem; color: var(--muted-foreground); margin-top: 0.75rem; list-style: disk; margin-left: 1rem; line-height: 1.6;">
+                                    <li>Remove triggers, views, and stored procedures</li>
+                                    <li>Add explicit transactions for batch operations</li>
+                                    <li>Verify memory usage for extremely large datasets</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
 
-            <h3>Date and Time Types</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Mapping</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>DATE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>DATE</td>
-                        <td>String-based storage</td>
-                    </tr>
-                    <tr>
-                        <td><code>DATETIME, TIMESTAMP</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>TIMESTAMP</td>
-                        <td>With CURRENT_TIMESTAMP support</td>
-                    </tr>
-                    <tr>
-                        <td><code>TIME</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>TIME</td>
-                        <td>HH:MM:SS format with microseconds support</td>
-                    </tr>
-                    <tr>
-                        <td><code>YEAR</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>YEAR</td>
-                        <td>1901-2155 range, 2/4-digit format support</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Functions Section -->
-        <div class="compatibility-section">
-            <h2>Functions and Operators</h2>
-            
-            <h3>Aggregate Functions</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Function</th>
-                        <th>Status</th>
-                        <th>Supported Syntax</th>
-                        <th>Limitations</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>COUNT(*), COUNT(column)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Count all rows or non-null values</td>
-                        <td>Only in SELECT clause with GROUP BY</td>
-                    </tr>
-                    <tr>
-                        <td><code>COUNT(DISTINCT column)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Count unique values</td>
-                        <td>Only in SELECT clause with GROUP BY</td>
-                    </tr>
-                    <tr>
-                        <td><code>SUM(column), AVG(column)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Numeric columns only</td>
-                        <td>Only in SELECT clause with GROUP BY</td>
-                    </tr>
-                    <tr>
-                        <td><code>MIN(column), MAX(column)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Any comparable type</td>
-                        <td>Only in SELECT clause with GROUP BY</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Built-in Functions</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Functions</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>String Functions</td>
-                        <td><code>CONCAT(), SUBSTRING(), LENGTH(), UPPER(), LOWER(), TRIM()</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Available in SELECT, WHERE, and JOIN clauses</td>
-                    </tr>
-                    <tr>
-                        <td>Date/Time Functions</td>
-                        <td><code>NOW(), CURDATE(), YEAR(), MONTH(), DAY(), DATE_FORMAT()</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Available in SELECT, WHERE, and JOIN clauses</td>
-                    </tr>
-                    <tr>
-                        <td>Math Functions</td>
-                        <td><code>ABS(), ROUND(), CEILING(), FLOOR(), MOD(), POWER()</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Available in SELECT, WHERE, and JOIN clauses</td>
-                    </tr>
-                    <tr>
-                        <td>Conditional Functions</td>
-                        <td><code>IF(), CASE...WHEN, COALESCE(), IFNULL(), NULLIF()</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Available in SELECT, WHERE, and JOIN clauses</td>
-                    </tr>
-                    <tr>
-                        <td>Type Conversion</td>
-                        <td><code>CAST(), CONVERT()</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Available in SELECT, WHERE, and JOIN clauses</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Special Functions</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Function</th>
-                        <th>Status</th>
-                        <th>Supported Context</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>VALUES(column)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>ON DUPLICATE KEY UPDATE expressions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>CURRENT_TIMESTAMP</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>DEFAULT values in CREATE/ALTER TABLE</td>
-                        <td>Not available in SELECT or WHERE</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Operators and Expressions</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Operators</th>
-                        <th>Status</th>
-                        <th>Supported Context</th>
-                        <th>Limitations</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Arithmetic</td>
-                        <td><code>+, -, *, /, %</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>SELECT, WHERE, and JOIN clauses</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Comparison</td>
-                        <td><code>=, !=, &lt;, &lt;=, &gt;, &gt;=</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Logical</td>
-                        <td><code>AND, OR</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Logical</td>
-                        <td><code>NOT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Pattern Matching</td>
-                        <td><code>LIKE, NOT LIKE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>Supports % and _ wildcards</td>
-                    </tr>
-                    <tr>
-                        <td>Regular Expressions</td>
-                        <td><code>REGEXP, RLIKE, NOT REGEXP, NOT RLIKE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>Full Go regex syntax support</td>
-                    </tr>
-                    <tr>
-                        <td>Set Operations</td>
-                        <td><code>IN, NOT IN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Range</td>
-                        <td><code>BETWEEN ... AND ..., NOT BETWEEN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>NULL Testing</td>
-                        <td><code>IS NULL, IS NOT NULL</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>WHERE clauses, JOIN ON conditions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Subquery</td>
-                        <td><code>EXISTS, NOT EXISTS</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Both correlated and non-correlated subqueries</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>Scalar Subqueries</td>
-                        <td><code>(SELECT column FROM table WHERE ...)</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>SELECT and WHERE clauses, with aggregates, both correlated and non-correlated</td>
-                        <td>Proper NULL and error handling</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Constraints Section -->
-        <div class="compatibility-section">
-            <h2>Constraints and Keys</h2>
-            
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Constraint</th>
-                        <th>Status</th>
-                        <th>Implementation</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>PRIMARY KEY</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Uniqueness enforced</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>UNIQUE</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Duplicate prevention</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>NOT NULL</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Null validation</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>AUTO_INCREMENT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Automatic value generation</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>DEFAULT value</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Including functions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td><code>FOREIGN KEY</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Full referential integrity</td>
-                        <td>CASCADE, SET NULL, SET DEFAULT, RESTRICT</td>
-                    </tr>
-                    <tr>
-                        <td><code>CHECK</code></td>
-                        <td><span class="status-parsed">📝 Parsed</span></td>
-                        <td>Syntax accepted, not enforced</td>
-                        <td>Improves migration compatibility</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Transaction Section -->
-        <div class="compatibility-section">
-            <h2>Transaction Support</h2>
-            
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>START TRANSACTION, BEGIN</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Begin transaction</td>
-                    </tr>
-                    <tr>
-                        <td><code>COMMIT, ROLLBACK</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Commit or rollback changes</td>
-                    </tr>
-                    <tr>
-                        <td>Nested transactions</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Full support with proper nesting</td>
-                    </tr>
-                    <tr>
-                        <td><code>SAVEPOINT name</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Create savepoints</td>
-                    </tr>
-                    <tr>
-                        <td><code>ROLLBACK TO SAVEPOINT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Partial rollback</td>
-                    </tr>
-                    <tr>
-                        <td><code>RELEASE SAVEPOINT</code></td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Remove savepoint</td>
-                    </tr>
-                    <tr>
-                        <td>Isolation levels</td>
-                        <td><span class="status-parsed">📝 Parsed</span></td>
-                        <td>SET TRANSACTION ISOLATION LEVEL statements accepted, not enforced</td>
-                    </tr>
-                    <tr>
-                        <td><code>LOCK TABLES, UNLOCK TABLES</code></td>
-                        <td><span class="status-parsed">📝 Parsed</span></td>
-                        <td>Statements accepted, locking not enforced</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Parse-Only Features Section -->
-        <div class="compatibility-section" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(168, 85, 247, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3);">
-            <h2 style="color: var(--text-primary);">📝 Parse-Only Features</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                These features are parsed and acknowledged but not functionally implemented. This improves compatibility with MySQL scripts and migration tools.
-            </p>
-            
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Syntax Support</th>
-                        <th>Migration Benefit</th>
-                        <th>Example</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>CHECK Constraints</strong></td>
-                        <td><span class="status-parsed">📝 Full Parsing</span></td>
-                        <td>MySQL dump files import without modification</td>
-                        <td><code>CHECK (price > 0)</code></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Transaction Isolation Levels</strong></td>
-                        <td><span class="status-parsed">📝 Full Parsing</span></td>
-                        <td>Migration scripts work without SET statement removal</td>
-                        <td><code>SET TRANSACTION ISOLATION LEVEL SERIALIZABLE</code></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Table Locking</strong></td>
-                        <td><span class="status-parsed">📝 Full Parsing</span></td>
-                        <td>Backup/restore scripts execute successfully</td>
-                        <td><code>LOCK TABLES users WRITE</code></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Session Variables</strong></td>
-                        <td><span class="status-parsed">📝 Full Parsing</span></td>
-                        <td>Configuration statements don't cause errors</td>
-                        <td><code>SET sql_mode = 'STRICT_TRANS_TABLES'</code></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div style="margin-top: 2rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 0.5rem; border: 1px solid rgba(139, 92, 246, 0.3);">
-                <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">🔄 Migration Workflow</h4>
-                <p style="color: var(--text-secondary); margin: 0;">
-                    These parse-only features enable seamless migration from MySQL by accepting common SQL constructs without requiring script modification. 
-                    While the functionality isn't enforced, the syntax compatibility significantly reduces migration friction.
-                </p>
-            </div>
-        </div>
-
-        <!-- Performance Section -->
-        <div class="compatibility-section">
-            <h2>Performance and Optimization</h2>
-            
-            <h3>Indexing</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Hash indexes</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Single-column, equality lookups</td>
-                    </tr>
-                    <tr>
-                        <td>Index-optimized queries</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Automatic usage in WHERE clauses</td>
-                    </tr>
-                    <tr>
-                        <td>Composite indexes</td>
-                        <td><span class="status-parsed">📝 Parsed</span></td>
-                        <td>Syntax recognized and stored but no query optimization</td>
-                    </tr>
-                    <tr>
-                        <td>Full-text indexes</td>
-                        <td><span class="status-parsed">📝 Parsed</span></td>
-                        <td>Syntax recognized and stored but no text search functionality</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Limitations Section -->
-        <div class="compatibility-section">
-            <h2>Syntax Limitations and Considerations</h2>
-            
-            <h3>Expression Limitations</h3>
-            <table class="compatibility-table">
-                <thead>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>What Works</th>
-                        <th>What Doesn't Work</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>SELECT Expressions</td>
-                        <td><span class="status-supported">✅ Full</span></td>
-                        <td>Column names, aliases, aggregates, functions, calculations, CASE expressions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>WHERE Expressions</td>
-                        <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, EXISTS/NOT EXISTS (correlated and non-correlated), functions, arithmetic expressions</td>
-                        <td>—</td>
-                    </tr>
-                    <tr>
-                        <td>JOIN Conditions</td>
-                        <td><span class="status-supported">✅ Enhanced</span></td>
-                        <td>Comparisons, AND/OR/NOT logic, IS NULL/NOT NULL, BETWEEN/NOT BETWEEN, IN/NOT IN, LIKE/NOT LIKE, REGEXP/RLIKE/NOT REGEXP/NOT RLIKE, functions, arithmetic expressions</td>
-                        <td>EXISTS subqueries</td>
-                    </tr>
-                    <tr>
-                        <td>ORDER BY</td>
-                        <td><span class="status-partial">⚠️ Basic</span></td>
-                        <td>Column names</td>
-                        <td>Expressions, functions, multiple criteria</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h3>Enhanced MySQL Features Now Supported</h3>
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">✅ Functions in SELECT</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>SELECT UPPER(name) FROM users</code> ✅</li>
-                    <li><code>SELECT CONCAT(first_name, ' ', last_name) AS full_name FROM users</code> ✅</li>
-                    <li><code>SELECT IF(age >= 18, 'Adult', 'Minor') FROM users</code> ✅</li>
-                    <li><code>SELECT NOW(), CURDATE()</code> ✅</li>
-                </ul>
-            </div>
-
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">✅ Calculated Columns</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>SELECT price * quantity AS total FROM orders</code> ✅</li>
-                    <li><code>SELECT age + 1 AS next_year FROM users</code> ✅</li>
-                    <li><code>SELECT salary / 12 AS monthly_salary FROM employees</code> ✅</li>
-                </ul>
-            </div>
-
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">✅ Enhanced WHERE Conditions</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE age BETWEEN 18 AND 65</code> ✅</li>
-                    <li><code>WHERE department IN ('Sales', 'Marketing')</code> ✅</li>
-                    <li><code>WHERE salary IS NOT NULL</code> ✅</li>
-                    <li><code>WHERE price NOT BETWEEN 10 AND 20</code> ✅</li>
-                    <li><code>WHERE category NOT IN ('Legacy', 'Discontinued')</code> ✅</li>
-                </ul>
-                
-                <h4 style="color: var(--text-primary);">✅ Newly Supported Pattern Matching</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE name LIKE 'John%'</code> ✅</li>
-                    <li><code>WHERE name NOT LIKE 'Admin%'</code> ✅</li>
-                    <li><code>WHERE name LIKE 'J_hn'</code> ✅ (underscore wildcard)</li>
-                    <li><code>WHERE email REGEXP '.*@company\.(com|org)'</code> ✅</li>
-                    <li><code>WHERE name RLIKE '^[A-Z].*'</code> ✅</li>
-                    <li><code>WHERE phone NOT REGEXP '^[0-9]{3}-[0-9]{3}-[0-9]{4}$'</code> ✅</li>
-                    <li><code>WHERE description REGEXP '(?i)important'</code> ✅ (case-insensitive)</li>
-                    <li><code>WHERE NOT (price > 100 AND category = 'Premium')</code> ✅</li>
-                </ul>
-                
-                <h4 style="color: var(--text-primary);">✅ Newly Supported Subqueries</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>WHERE EXISTS (SELECT 1 FROM categories WHERE id = 1)</code> ✅</li>
-                    <li><code>WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = users.id)</code> ✅ (correlated)</li>
-                    <li><code>WHERE NOT EXISTS (SELECT 1 FROM archived_users WHERE name = 'test')</code> ✅</li>
-                    <li><code>SELECT (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ✅ (correlated scalar)</li>
-                </ul>
-                
-                <h4 style="color: var(--text-primary);">❌ Still Not Supported Features</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>ORDER BY salary DESC</code> ❌ (complex ORDER BY with expressions)</li>
-                    <li><code>ORDER BY name ASC, age DESC</code> ❌ (multiple column sorting)</li>
-                    <li><code>ORDER BY UPPER(name)</code> ❌ (function-based ordering)</li>
-                    <li><code>ORDER BY (SELECT COUNT(*) FROM orders WHERE user_id = users.id)</code> ❌ (subquery ordering)</li>
-                </ul>
-            </div>
-
-            <h3>Remaining Limitations</h3>
-
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">✅ Scalar Subqueries in SELECT</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li><code>SELECT (SELECT MAX(salary) FROM employees) AS max_salary</code> ✅</li>
-                    <li><code>SELECT name, (SELECT COUNT(*) FROM employees WHERE dept_id = 1) FROM departments</code> ✅</li>
-                    <li><code>SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = users.id) FROM users</code> ✅ (correlated subqueries)</li>
-                </ul>
-            </div>
-
-            <h3>General Database Limitations</h3>
-            <ul style="color: var(--text-secondary); line-height: 1.6;">
-                <li><strong>In-memory only</strong> - No persistent storage</li>
-                <li><strong>Single database</strong> - No multi-database support</li>
-                <li><strong>No user management</strong> - No authentication or authorization</li>
-                <li><strong>Limited concurrency</strong> - Thread-safe but no advanced locking</li>
-                <li><strong>Memory usage</strong> - All data held in RAM</li>
-                <li><strong>No stored procedures</strong> - Application logic only</li>
-                <li><strong>No triggers</strong> - No event-driven logic</li>
-                <li><strong>No views</strong> - Physical tables only</li>
-            </ul>
-
-            <h3>Migration from MySQL</h3>
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">✅ Supported Migrations</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li>Table structures with standard data types including TIME, YEAR, SET</li>
-                    <li>CRUD operations with comprehensive WHERE conditions</li>
-                    <li>Relationships with foreign keys and constraints</li>
-                    <li>Complex reporting queries with aggregates, GROUP BY, and HAVING</li>
-                    <li>Advanced JOINs with complex ON conditions</li>
-                    <li>UNION operations for combining results</li>
-                    <li>Function-based transformations and calculations</li>
-                    <li>Conditional logic with IF and CASE expressions</li>
-                    <li>String manipulation and date/time processing</li>
-                    <li>Type conversions and casting</li>
-                </ul>
-            </div>
-
-            <div style="margin: 1rem 0;">
-                <h4 style="color: var(--text-primary);">⚠️ Manual Adjustments Needed</h4>
-                <ul style="color: var(--text-secondary); line-height: 1.6;">
-                    <li>Replace correlated subqueries with separate queries and application logic</li>
-                    <li>Remove stored procedures, triggers, and views</li>
-                    <li>Add explicit transactions where needed</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="back-nav" style="margin-top: 3rem;">
-            <a href="index.html">← Back to Mist Documentation</a>
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer" style="margin-top: 4rem;">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <img src="mist-icon.svg" alt="Mist" class="logo">
-                    <span class="brand-text">Mist</span>
+                    <h3>Data Types</h3>
+                    <table class="compat-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Category</th>
+                                <th style="width: 20%;">Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Numeric</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>TINYINT, INT, BIGINT, DECIMAL, FLOAT, DOUBLE, BIT</td>
+                            </tr>
+                            <tr>
+                                <td>String</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>CHAR, VARCHAR, TEXT, LONGTEXT, ENUM, SET</td>
+                            </tr>
+                            <tr>
+                                <td>Temporal</td>
+                                <td><span class="status-badge success">Full</span></td>
+                                <td>DATE, DATETIME, TIMESTAMP, TIME, YEAR</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="footer-links">
-                    <a href="https://github.com/abbychau/mist" target="_blank">GitHub</a>
-                    <a href="https://github.com/abbychau/mist/issues" target="_blank">Issues</a>
-                    <a href="https://github.com/abbychau/mist/blob/main/LICENSE" target="_blank">License</a>
+
+                <div class="compat-section" style="border-top: 1px solid var(--border); padding-top: 2rem;">
+                    <h2>Technical Limitations</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <h3 style="margin-top: 0;">Operational</h3>
+                            <ul
+                                style="list-style: disk; margin-left: 1.5rem; color: var(--muted-foreground); line-height: 1.8;">
+                                <li><strong>In-Memory:</strong> Data is not persistent across restarts (unless using
+                                    AOF).</li>
+                                <li><strong>Single Schema:</strong> Limited to one database instance per engine.</li>
+                                <li><strong>No Auth:</strong> No user authentication or permission management.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 style="margin-top: 0;">SQL Engine</h3>
+                            <ul
+                                style="list-style: disk; margin-left: 1.5rem; color: var(--muted-foreground); line-height: 1.8;">
+                                <li><strong>Complex Order By:</strong> Expression-based ordering (e.g.,
+                                    <code>ORDER BY UPPER(name)</code>) is not yet supported.
+                                </li>
+                                <li><strong>Stored Logic:</strong> No support for Triggers, Views, or Stored Procedures.
+                                </li>
+                                <li><strong>Multi-Sort:</strong> Parsing multiple order-by columns is supported, but
+                                    sorting logic is currently primary-column centric.</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 Mist Database. Built with ❤️ by <a href="https://github.com/abbychau" target="_blank">Abby</a>.</p>
-            </div>
-        </div>
-    </footer>
 
-    <script>hljs.highlightAll();</script>
+            <footer class="footer">
+                <div class="container">
+                    <div class="footer-bottom">
+                        <p>&copy; 2025 Mist. by <a href="https://github.com/abbychau">Abby Chau</a></p>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+        hljs.highlightAll();
+    </script>
 </body>
+
 </html>

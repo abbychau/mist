@@ -1,582 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist SQL Playground - Complete MySQL Engine in WebAssembly</title>
+    <title>Mist Playground - Enhanced MySQL Engine</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/sql/sql.min.js"></script>
     <style>
-        .playground {
-            background: var(--background);
-            padding-top: 0px;
-        }
-        
-        .playground-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 1rem;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            height: calc(100vh - 70px);
-        }
-        
-        .editor-panel, .results-panel {
-            background: var(--surface);
-            border-radius: 1rem;
-            border: 1px solid var(--border-color);
+        .playground-main {
             display: flex;
             flex-direction: column;
+            height: 100vh;
             overflow: hidden;
         }
-        
-        .panel-header {
-            background: var(--surface-light);
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-color);
+
+        .playground-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: center;
             justify-content: space-between;
-        }
-        
-        .panel-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            display: flex;
             align-items: center;
-            gap: 0.5rem;
+            background: var(--background);
         }
-        
-        .editor-content {
+
+        .playground-grid {
             flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        .panel {
             display: flex;
             flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--background);
         }
-        
-        .CodeMirror {
-            flex: 1;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            background: var(--surface) !important;
-            color: var(--text-primary) !important;
-            border: none !important;
+
+        .panel:last-child {
+            border-right: none;
         }
-        
-        .CodeMirror-gutters {
-            background: var(--surface-light) !important;
-            border-right: 1px solid var(--border-color) !important;
-        }
-        
-        .CodeMirror-linenumber {
-            color: var(--text-muted) !important;
-        }
-        
-        .toolbar {
+
+        .panel-header {
             padding: 0.75rem 1rem;
-            border-top: 1px solid var(--border-color);
-            background: var(--surface-light);
+            border-bottom: 1px solid var(--border);
             display: flex;
-            gap: 0.75rem;
+            justify-content: space-between;
             align-items: center;
+            background: var(--muted);
         }
-        
-        .btn-execute {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+
+        .panel-title {
+            font-size: 0.875rem;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: var(--foreground);
             display: flex;
-            align-items: center;
             gap: 0.5rem;
+            align-items: center;
         }
-        
-        
-        .btn-execute:disabled {
-            background: var(--text-muted);
-            cursor: not-allowed;
-            transform: none;
+
+        .editor-container {
+            flex: 1;
+            position: relative;
         }
-        
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
+
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
         }
-        
-        .btn-secondary:hover {
-            background: var(--surface-light);
-            color: var(--text-primary);
+
+        .playground-toolbar {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
         }
-        
-        .results-content {
+
+        .results-container {
             flex: 1;
             overflow: auto;
-            padding: 1.5rem;
+            padding: 1rem;
         }
-        
+
         .result-table {
             width: 100%;
             border-collapse: collapse;
-            background: var(--surface);
-            border-radius: 0.5rem;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
+            font-size: 0.875rem;
         }
-        
+
         .result-table th {
-            background: var(--surface-light);
-            color: var(--text-primary);
-            font-weight: 600;
-            padding: 0.75rem 1rem;
             text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .result-table td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-secondary);
-        }
-        
-        .result-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .result-table tr:hover {
-            background: rgba(59, 130, 246, 0.05);
-        }
-        
-        .result-message {
-            background: var(--surface-light);
-            border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            color: var(--text-secondary);
-        }
-        
-        .result-message.success {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
-            color: #10b981;
-        }
-        
-        .result-message.error {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-        }
-        
-        .examples-sidebar {
-            background: var(--surface-light);
-            border-top: 1px solid var(--border-color);
-            padding: 0.75rem;
-            max-height: 350px;
-            overflow-y: auto;
-        }
-        
-        .examples-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-        }
-        
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-        }
-        
-        .modal-content {
-            background-color: var(--surface);
-            margin: 2% auto;
-            padding: 0;
-            border-radius: 1rem;
-            width: 90%;
-            max-width: 1200px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            border: 1px solid var(--border-color);
-        }
-        
-        .modal-header {
-            background: var(--surface-light);
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            border-radius: 1rem 1rem 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-title {
-            margin: 0;
-            color: var(--text-primary);
-            font-size: 1.5rem;
-        }
-        
-        .close {
-            color: var(--text-muted);
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        
-        .close:hover {
-            color: var(--text-primary);
-        }
-        
-        .modal-body {
-            padding: 2rem;
-        }
-        
-        .examples-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-        
-        .example-query {
-            background: var(--surface);
-            border: 1px solid var(--border-color);
-            border-radius: 0.25rem;
             padding: 0.5rem;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
+            border-bottom: 2px solid var(--border);
+            color: var(--muted-foreground);
+            font-weight: 600;
         }
-        
-        
-        .status-bar {
-            padding: 0.5rem 1.5rem;
-            background: var(--surface-light);
-            border-top: 1px solid var(--border-color);
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+
+        .result-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--foreground);
         }
-        
-        .wasm-status {
+
+        .wasm-status-badge {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            background: var(--muted);
+            border: 1px solid var(--border);
         }
-        
-        .status-indicator {
-            width: 8px;
-            height: 8px;
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background: #ef4444;
         }
-        
-        .status-indicator.ready {
+
+        .status-dot.ready {
             background: #10b981;
         }
-        
-        .demo-mode-notice {
-            background: rgba(139, 92, 246, 0.1);
-            border: 1px solid var(--accent-color);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            color: var(--accent-color);
-            text-align: center;
-        }
-        
-        /* Merged Header Styles */
-        .merged-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .info-banner {
-            background: linear-gradient(135deg, #00b894, #00a085);
-            border-bottom: 2px solid #00896c;
-            padding: 0.75rem 1rem;
-        }
-        
-        .banner-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        .banner-text {
-            font-weight: 500;
-            color: white;
-            text-align: center;
-        }
-        
-        .download-btn {
-            background: white;
-            color: #00b894;
-            border: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 0.4rem;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            white-space: nowrap;
-            text-decoration: none;
-        }
-        
-        
-        /* Adjust playground to account for fixed header */
-        .playground {
-            margin-top: 70px; /* Adjust based on actual header height */
-        }
-        
+
         @media (max-width: 1024px) {
-            .playground-container {
+            .playground-grid {
                 grid-template-columns: 1fr;
-                height: auto;
+                overflow: auto;
             }
-            
-            .editor-panel, .results-panel {
-                height: 400px;
-            }
-            
-            .banner-content {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            
-            .playground {
-                margin-top: 70px; /* More space on mobile for wrapped content */
+
+            .panel {
+                height: 500px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
             }
         }
     </style>
 </head>
-<body>
-    <!-- Merged Header: Navigation + Info Banner -->
-    <header class="merged-header">
-        <!-- Navigation Bar -->
-        <nav class="navbar">
-            <div class="nav-container">
-                <div class="nav-brand">
-                    <img src="mist-icon.svg" alt="Mist" class="logo">
-                    <span class="brand-text">Mist Playground</span>
-                </div>
-                <div class="nav-links">
-                    <a href="index.html">Home</a>
-                    <a href="mysql_compatibility.html">MySQL Compatibility</a>
-                    <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
-                </div>
-            </div>
-        </nav>
-        
-        <!-- Info Banner -->
-        <div class="info-banner">
-            <div class="banner-content">
-                <span class="banner-text">✨ <strong>Web Demo:</strong> Full MIST SQL engine running in WebAssembly with complete MySQL compatibility.</span>
-                <a href="https://github.com/abbychau/mist" target="_blank" class="download-btn">
-                    📥 Download MIST
-                </a>
-            </div>
-        </div>
-    </header>
 
-    <!-- Playground -->
-    <section class="playground">
-        <div class="playground-container">
-            <!-- Editor Panel -->
-            <div class="editor-panel">
-                <div class="panel-header">
-                    <h3 class="panel-title">
-                        <span>📝</span> SQL Editor
-                    </h3>
-                    <div class="wasm-status">
-                        <span class="status-indicator" id="wasmStatus"></span>
+<body>
+    <div class="layout-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="mist-icon.svg" alt="Mist" class="sidebar-logo">
+                <span class="sidebar-brand-text">Mist</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="sidebar-link">
+                    <i class="fa-solid fa-house"></i> Home
+                </a>
+                <a href="mysql_compatibility.html" class="sidebar-link">
+                    <i class="fa-solid fa-check-double"></i> Compatibility
+                </a>
+                <a href="#" class="sidebar-link active">
+                    <i class="fa-solid fa-play"></i> Playground
+                </a>
+                <a href="https://github.com/abbychau/mist" target="_blank" class="sidebar-link">
+                    <i class="fa-brands fa-github"></i> GitHub
+                </a>
+                <hr style="border: 0; border-top: 1px solid var(--border); margin: 1rem 0;">
+                <div
+                    style="padding: 0 1rem; font-size: 0.75rem; color: var(--muted-foreground); font-weight: 600; margin-bottom: 0.5rem;">
+                    QUICK EXAMPLES</div>
+                <a href="javascript:loadExample('basics')" class="sidebar-link">Table Basics</a>
+                <a href="javascript:loadExample('subqueries')" class="sidebar-link">Subqueries</a>
+                <a href="javascript:loadExample('fk')" class="sidebar-link">Foreign Keys</a>
+                <a href="javascript:loadExample('functions')" class="sidebar-link">Functions</a>
+                <a href="javascript:loadExample('unions')" class="sidebar-link">Set Ops (UNION)</a>
+                <a href="javascript:loadExample('tx')" class="sidebar-link">Transactions</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content (Dashboard) -->
+        <main class="main-content" style="padding: 0;">
+            <div class="playground-main">
+                <div class="playground-header">
+                    <div>
+                        <h1 style="font-size: 1.125rem; font-weight: 700;">SQL Playground</h1>
+                        <p style="font-size: 0.8125rem; color: var(--muted-foreground); margin-top: 0.125rem;">Full
+                            MySQL Engine in WebAssembly</p>
+                    </div>
+                    <div class="wasm-status-badge">
+                        <span class="status-dot" id="wasmStatus"></span>
                         <span id="wasmStatusText">Connecting...</span>
                     </div>
                 </div>
-                
-                
-                <div class="editor-content">
-                    <textarea id="sqlEditor">-- Welcome to Mist SQL Playground!
--- Now supports multiple SQL statements!
 
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE,
-    age INT,
-    salary DECIMAL(10,2)
-);
-
-INSERT INTO users (name, email, age, salary) 
-VALUES ('Alice', 'alice@example.com', 30, 75000);
-
+                <div class="playground-grid">
+                    <!-- Left Panel: Editor -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Editor</span>
+                        </div>
+                        <div class="editor-container">
+                            <textarea id="sqlEditor">-- Execute multiple SQL statements here
+CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100));
+INSERT INTO users (name) VALUES ('Alice'), ('Bob');
 SELECT * FROM users;</textarea>
-                </div>
-                
-                <div class="toolbar">
-                    <button class="btn-execute" id="executeBtn">
-                        <span>▶</span> Execute Query
-                    </button>
-                    <button class="btn-secondary" id="clearBtn">Clear</button>
-                    <button class="btn-secondary" id="formatBtn">Format SQL</button>
-                    <button class="btn-secondary" onclick="openFeatureModal()">✨ Features</button>
-                </div>
-                
-                <div class="examples-sidebar">
-                    <div class="examples-title">Quick Examples (Full MySQL Engine)</div>
-                    <div class="examples-grid">
-                        <div class="example-query" data-query="CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(255), age INT, salary DECIMAL(10,2));">📝 Create Table</div>
-                        <div class="example-query" data-query="INSERT INTO users (name, email, age, salary) VALUES ('John Doe', 'john@example.com', 28, 65000), ('Jane Smith', 'jane@example.com', 35, 85000);">➕ Insert Data</div>
-                        <div class="example-query" data-query="SELECT COUNT(*) as total, AVG(salary) as avg_salary FROM users;">📊 Aggregates</div>
-                        <div class="example-query" data-query="SELECT UPPER(name) as name_upper, email FROM users WHERE age > 30;">🔧 Functions & WHERE</div>
-                        <div class="example-query" data-query="SELECT * FROM users WHERE name LIKE 'J%' ORDER BY age DESC;">🔍 LIKE & ORDER</div>
-                        <div class="example-query" data-query="CREATE TABLE orders (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, product VARCHAR(100), amount DECIMAL(10,2));">🛒 Orders Table</div>
-                        <div class="example-query" data-query="INSERT INTO orders (user_id, product, amount) VALUES (1, 'Laptop', 999.99), (2, 'Mouse', 29.99), (1, 'Keyboard', 79.99);">🛍️ Insert Orders</div>
-                        <div class="example-query" data-query="SELECT u.name, SUM(o.amount) as total FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id, u.name;">🔗 JOIN & GROUP BY</div>
-                        <div class="example-query" data-query="SELECT name, (SELECT MAX(salary) FROM users) AS max_salary FROM users LIMIT 1;">📊 Scalar Subquery</div>
-                        <div class="example-query" data-query="SELECT u.name FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id);">🔗 Correlated EXISTS</div>
-                        <div class="example-query" data-query="BEGIN; UPDATE users SET salary = salary * 1.1; SELECT * FROM users; ROLLBACK;">💰 Transaction</div>
-                        <div class="example-query" data-query="SHOW TABLES;">📁 Show Tables</div>
-                        <div class="example-query" data-query="CREATE INDEX idx_age ON users(age); SHOW INDEX FROM users;">🗂️ Create & Show Index</div>
+                        </div>
+                        <div class="playground-toolbar">
+                            <button class="btn btn-primary" id="executeBtn" style="padding: 0.5rem 1.25rem;">
+                                Run Query
+                            </button>
+                            <button class="btn btn-secondary" id="clearBtn" style="padding: 0.5rem 1rem;">Clear</button>
+                            <button class="btn btn-destructive" id="dropAllBtn" style="padding: 0.5rem 1rem;">Drop
+                                All</button>
+                            <div style="flex: 1;"></div>
+                            <button class="btn btn-secondary" id="downloadSnapshotBtn"
+                                style="padding: 0.5rem 1rem;">Export</button>
+                            <button class="btn btn-secondary" id="uploadSnapshotBtn"
+                                style="padding: 0.5rem 1rem;">Import</button>
+                            <input type="file" id="snapshotInput" style="display: none;" accept=".bin,.db,.snapshot">
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Results -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="panel-title">Results</span>
+                            <span id="executionTime" style="font-size: 0.75rem; color: var(--muted-foreground);"></span>
+                        </div>
+                        <div class="results-container" id="resultsContent">
+                            <div style="color: var(--muted-foreground); font-size: 0.875rem;">
+                                No queries executed. Run a query to see results.
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Results Panel -->
-            <div class="results-panel">
-                <div class="panel-header">
-                    <h3 class="panel-title">
-                        <span>📊</span> Query Results
-                    </h3>
-                    <span id="executionTime"></span>
-                </div>
-                
-                <div class="results-content" id="resultsContent">
-                    <div class="result-message">
-                        👋 Welcome to Mist SQL Playground!<br><br>
-                        This web demo runs the <strong>complete MIST SQL engine</strong> in WebAssembly with full MySQL compatibility.<br>
-                        <span id="loadingMessage">🔄 Loading full engine... (24MB WASM file)</span><br>
-                        Execute any SQL query to see results here. <br><br>
-                        <small><em>✨ Features: Transactions, JOINs, Subqueries, Aggregates, Functions, Indexes, and more!</em></small>
-                    </div>
-                </div>
-                
-                <div class="status-bar">
-                    <span id="resultStatus">Ready</span>
-                    <span id="rowCount"></span>
-                </div>
-            </div>
-        </div>
-    </section>
+        </main>
+    </div>
 
     <script src="wasm_exec.js"></script>
     <script>
-        let wasmEngine = null;
         let wasmReady = false;
-        
-        // Initialize WASM
+
         async function initWASM() {
             try {
-                console.log('Loading WASM module...');
-                document.getElementById('wasmStatusText').textContent = 'Loading WASM...';
-                
                 const go = new Go();
                 const result = await WebAssembly.instantiateStreaming(fetch('mist.wasm'), go.importObject);
                 go.run(result.instance);
-                
-                // Wait for WASM functions to be available
+
                 let attempts = 0;
-                while (!window.executeSQL && attempts < 100) { // Increased timeout for larger WASM
-                    await new Promise(resolve => setTimeout(resolve, 200)); // Longer intervals
+                while (!window.executeSQL && attempts < 100) {
+                    await new Promise(r => setTimeout(r, 200));
                     attempts++;
-                    
-                    if (attempts % 10 === 0) {
-                        console.log(`Waiting for WASM functions... (${attempts}/100)`);
-                        document.getElementById('wasmStatusText').textContent = `Loading... ${Math.round(attempts/100*100)}%`;
-                    }
                 }
-                
+
                 if (window.executeSQL) {
                     wasmReady = true;
-                    document.getElementById('wasmStatus').className = 'status-indicator ready';
+                    document.getElementById('wasmStatus').classList.add('ready');
                     document.getElementById('wasmStatusText').textContent = 'WASM Ready';
-                    
-                    // Hide loading message
-                    const loadingMessage = document.getElementById('loadingMessage');
-                    if (loadingMessage) {
-                        loadingMessage.style.display = 'none';
-                    }
-                    
-                    console.log('Mist WASM engine loaded successfully!');
-                    console.log('Available functions:', ['executeSQL', 'startRecording', 'stopRecording', 'getRecordedQueries', 'clearRecordedQueries']);
-                } else {
-                    throw new Error('WASM initialization timeout - functions not available');
                 }
-                
-            } catch (error) {
-                console.error('Failed to load WASM:', error);
-                document.getElementById('wasmStatus').className = 'status-indicator error';
-                
-                if (error.message.includes('timeout')) {
-                    document.getElementById('wasmStatusText').textContent = 'WASM Loading... (Large file, please wait)';
-                    // Try one more time with extended timeout
-                    setTimeout(() => {
-                        if (!wasmReady) {
-                            document.getElementById('wasmStatusText').textContent = 'Using Demo Mode (WASM too large)';
-                            console.log('WASM failed to load, using demo mode');
-                        }
-                    }, 10000);
-                } else {
-                    document.getElementById('wasmStatusText').textContent = 'Demo Mode (WASM Failed)';
-                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('wasmStatusText').textContent = 'Demo Mode';
             }
         }
-        
-        // Initialize CodeMirror
+
         const editor = CodeMirror.fromTextArea(document.getElementById('sqlEditor'), {
             mode: 'sql',
             theme: 'monokai',
@@ -585,445 +284,160 @@ SELECT * FROM users;</textarea>
             lineWrapping: true,
             matchBrackets: true,
             autoCloseBrackets: true,
-            extraKeys: {
-                'Ctrl-Enter': executeQuery,
-                'Cmd-Enter': executeQuery,
-                'F5': executeQuery
-            }
         });
 
-        // Demo database simulation
-        class DemoDatabase {
-            constructor() {
-                this.tables = {};
-                this.autoIncrements = {};
-                this.initSampleData();
-            }
-
-            initSampleData() {
-                // Initialize with some sample data
-                this.tables = {};
-                this.autoIncrements = {};
-            }
-
-            execute(query) {
-                const sql = query.trim().toUpperCase();
-                
-                // Simple query parsing for demo
-                if (sql.startsWith('CREATE TABLE')) {
-                    return this.handleCreateTable(query);
-                } else if (sql.startsWith('INSERT INTO')) {
-                    return this.handleInsert(query);
-                } else if (sql.startsWith('SELECT')) {
-                    return this.handleSelect(query);
-                } else if (sql.startsWith('UPDATE')) {
-                    return this.handleUpdate(query);
-                } else if (sql.startsWith('DELETE')) {
-                    return this.handleDelete(query);
-                } else if (sql.startsWith('SHOW TABLES')) {
-                    return this.handleShowTables();
-                } else {
-                    return {
-                        type: 'message',
-                        message: 'Query executed successfully (demo mode)'
-                    };
-                }
-            }
-
-            handleCreateTable(query) {
-                // Extract table name
-                const match = query.match(/CREATE TABLE\\s+(\\w+)/i);
-                if (match) {
-                    const tableName = match[1];
-                    this.tables[tableName] = [];
-                    this.autoIncrements[tableName] = 1;
-                    return {
-                        type: 'message',
-                        message: `Table '${tableName}' created successfully`
-                    };
-                }
-                throw new Error('Invalid CREATE TABLE syntax');
-            }
-
-            handleInsert(query) {
-                // Simple INSERT simulation
-                const match = query.match(/INSERT INTO\\s+(\\w+)/i);
-                if (match) {
-                    const tableName = match[1];
-                    if (!this.tables[tableName]) {
-                        this.tables[tableName] = [];
-                        this.autoIncrements[tableName] = 1;
-                    }
-                    
-                    // Add sample row
-                    const row = { id: this.autoIncrements[tableName]++, data: 'sample' };
-                    this.tables[tableName].push(row);
-                    
-                    return {
-                        type: 'message',
-                        message: '1 row inserted'
-                    };
-                }
-                throw new Error('Invalid INSERT syntax');
-            }
-
-            handleSelect(query) {
-                // Clean up query - remove semicolon and normalize
-                const cleanQuery = query.replace(/;\\s*$/, '').trim();
-                const match = cleanQuery.match(/FROM\\s+(\\w+)/i);
-                if (match) {
-                    const tableName = match[1].toLowerCase();
-                    const table = this.tables[tableName] || [];
-                    
-                    if (cleanQuery.toUpperCase().includes('COUNT(*)')) {
-                        return {
-                            type: 'select',
-                            columns: ['COUNT(*)'],
-                            rows: [[table.length]]
-                        };
-                    }
-                    
-                    // Return sample data for demonstration
-                    if (tableName === 'users') {
-                        return {
-                            type: 'select',
-                            columns: ['id', 'name', 'email', 'age', 'created_at'],
-                            rows: [
-                                [1, 'Alice Johnson', 'alice@example.com', 28, '2024-01-15 10:30:00'],
-                                [2, 'Bob Smith', 'bob@example.com', 35, '2024-01-16 14:22:00'],
-                                [3, 'Carol Davis', 'carol@example.com', 42, '2024-01-17 09:15:00']
-                            ]
-                        };
-                    } else {
-                        // For other tables, return empty but valid structure
-                        return {
-                            type: 'select',
-                            columns: ['id', 'data'],
-                            rows: []
-                        };
-                    }
-                }
-                throw new Error(`Invalid SELECT syntax: ${cleanQuery}`);
-            }
-
-            handleUpdate(query) {
-                return {
-                    type: 'message',
-                    message: '1 row updated'
-                };
-            }
-
-            handleDelete(query) {
-                return {
-                    type: 'message',
-                    message: '1 row deleted'
-                };
-            }
-
-            handleShowTables() {
-                const tableNames = Object.keys(this.tables);
-                return {
-                    type: 'select',
-                    columns: ['Tables'],
-                    rows: tableNames.map(name => [name])
-                };
-            }
-        }
-
-        // Initialize demo database
-        const demoDb = new DemoDatabase();
-
-        // UI Event Handlers
-        document.getElementById('executeBtn').addEventListener('click', executeQuery);
-        document.getElementById('clearBtn').addEventListener('click', clearEditor);
-        document.getElementById('formatBtn').addEventListener('click', formatSQL);
-
-        // Example queries
-        document.querySelectorAll('.example-query').forEach(el => {
-            el.addEventListener('click', () => {
-                const query = el.getAttribute('data-query');
-                editor.setValue(query);
-                editor.focus();
-            });
-        });
-
-        function executeQuery() {
+        async function executeQuery() {
             const query = editor.getValue().trim();
             if (!query) return;
 
             const executeBtn = document.getElementById('executeBtn');
             const resultsContent = document.getElementById('resultsContent');
-            const resultStatus = document.getElementById('resultStatus');
             const executionTime = document.getElementById('executionTime');
-            
+
             executeBtn.disabled = true;
-            executeBtn.textContent = '⏳ Executing...';
-            resultStatus.textContent = 'Executing...';
-            
-            const startTime = performance.now();
-            
+            executeBtn.textContent = 'Running...';
+
+            const start = performance.now();
+
             try {
-                console.log('executeQuery: wasmReady =', wasmReady, 'executeSQL =', typeof window.executeSQL);
-                
-                // Use WASM engine if available, otherwise fall back to demo
                 if (wasmReady && window.executeSQL) {
-                    console.log('Using WASM engine for query:', query);
-                    try {
-                        const jsonResult = window.executeSQL(query);
-                        console.log('WASM JSON result:', jsonResult);
-                        
-                        // Parse the JSON response
-                        const result = JSON.parse(jsonResult);
-                        console.log('Parsed result:', result);
-                        
-                        const endTime = performance.now();
-                        const duration = (endTime - startTime).toFixed(1);
-                        
-                        if (result && result.error) {
-                            displayError(result.error);
-                            resultStatus.textContent = 'Error';
-                        } else {
-                            displayResult(result);
-                            executionTime.textContent = `${duration}ms (WASM)`;
-                            resultStatus.textContent = 'Success (WASM)';
-                        }
-                        
-                        executeBtn.disabled = false;
-                        executeBtn.innerHTML = '<span>▶</span> Execute Query';
-                        
-                    } catch (error) {
-                        displayError('WASM Error: ' + error.message);
-                        executeBtn.disabled = false;
-                        executeBtn.innerHTML = '<span>▶</span> Execute Query';
-                        resultStatus.textContent = 'Error';
+                    const jsonResult = window.executeSQL(query);
+                    const result = JSON.parse(jsonResult);
+                    const duration = (performance.now() - start).toFixed(1);
+                    executionTime.textContent = `${duration}ms`;
+
+                    if (result.error) {
+                        displayError(result.error);
+                    } else {
+                        displayResult(result);
                     }
                 } else {
-                    console.log('Falling back to demo mode - wasmReady:', wasmReady, 'executeSQL:', typeof window.executeSQL);
-                    // Fall back to demo mode
-                    setTimeout(() => {
-                        try {
-                            const result = demoDb.execute(query);
-                            const endTime = performance.now();
-                            const duration = (endTime - startTime).toFixed(1);
-                            
-                            displayResult(result);
-                            executionTime.textContent = `${duration}ms (Demo)`;
-                            resultStatus.textContent = 'Success (Demo)';
-                            
-                        } catch (error) {
-                            displayError(error.message);
-                            resultStatus.textContent = 'Error';
-                        } finally {
-                            executeBtn.disabled = false;
-                            executeBtn.innerHTML = '<span>▶</span> Execute Query';
-                        }
-                    }, 100);
+                    displayError("WASM not ready. Please wait or refresh.");
                 }
-                
-            } catch (error) {
-                displayError(error.message);
+            } catch (e) {
+                displayError(e.message);
+            } finally {
                 executeBtn.disabled = false;
-                executeBtn.innerHTML = '<span>▶</span> Execute Query';
-                resultStatus.textContent = 'Error';
+                executeBtn.textContent = 'Run Query';
             }
         }
 
         function displayResult(result) {
             const resultsContent = document.getElementById('resultsContent');
-            const rowCount = document.getElementById('rowCount');
-            
+            resultsContent.innerHTML = '';
+
             if (result.type === 'select') {
-                const table = createTable(result.columns, result.rows);
-                resultsContent.innerHTML = '';
+                const table = document.createElement('table');
+                table.className = 'result-table';
+
+                const thead = document.createElement('thead');
+                const htr = document.createElement('tr');
+                result.columns.forEach(c => {
+                    const th = document.createElement('th');
+                    th.textContent = c;
+                    htr.appendChild(th);
+                });
+                thead.appendChild(htr);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                result.rows.forEach(r => {
+                    const tr = document.createElement('tr');
+                    r.forEach(cell => {
+                        const td = document.createElement('td');
+                        td.textContent = cell;
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
                 resultsContent.appendChild(table);
-                rowCount.textContent = `${result.rows.length} rows`;
             } else {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'result-message success';
-                messageDiv.textContent = result.message;
-                resultsContent.innerHTML = '';
-                resultsContent.appendChild(messageDiv);
-                rowCount.textContent = '';
+                resultsContent.innerHTML = `<div style="color: #10b981; font-size: 0.875rem;">${result.message}</div>`;
             }
         }
 
-        function displayError(message) {
-            const resultsContent = document.getElementById('resultsContent');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'result-message error';
-            messageDiv.textContent = message;
-            resultsContent.innerHTML = '';
-            resultsContent.appendChild(messageDiv);
-            document.getElementById('rowCount').textContent = '';
+        function displayError(msg) {
+            resultsContent.innerHTML = `<div style="color: #ef4444; font-size: 0.875rem;">Error: ${msg}</div>`;
         }
 
-        function createTable(columns, rows) {
-            const table = document.createElement('table');
-            table.className = 'result-table';
-            
-            // Create header
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            columns.forEach(col => {
-                const th = document.createElement('th');
-                th.textContent = col;
-                headerRow.appendChild(th);
-            });
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-            
-            // Create body
-            const tbody = document.createElement('tbody');
-            rows.forEach(row => {
-                const tr = document.createElement('tr');
-                row.forEach(cell => {
-                    const td = document.createElement('td');
-                    td.textContent = cell;
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-            
-            return table;
+        function loadExample(type) {
+            const examples = {
+                basics: "-- Basic Table creation and Data Manipulation\nCREATE TABLE products (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50), price FLOAT);\nINSERT INTO products (name, price) VALUES ('Widget A', 29.99), ('Gadget B', 49.50), ('Tool C', 15.00);\nSELECT * FROM products WHERE price > 20 ORDER BY price DESC;",
+                subqueries: "-- Correlated and non-correlated scalar subqueries\nCREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(50));\nCREATE TABLE orders (id INT PRIMARY KEY, user_id INT, amount FLOAT);\nINSERT INTO users VALUES (1, 'Alice'), (2, 'Bob');\nINSERT INTO orders VALUES (101, 1, 50.0), (102, 1, 30.0), (103, 2, 90.0);\n-- Show each user with their total order count using a correlated subquery\nSELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = users.id) AS order_count FROM users;",
+                fk: "-- Foreign Key constraints and Cascade Deletes\nCREATE TABLE categories (id INT PRIMARY KEY, name VARCHAR(30));\nCREATE TABLE items (id INT PRIMARY KEY, cat_id INT, name VARCHAR(30), FOREIGN KEY (cat_id) REFERENCES categories(id) ON DELETE CASCADE);\nINSERT INTO categories VALUES (1, 'Electronics'), (2, 'Books');\nINSERT INTO items VALUES (1, 1, 'Laptop'), (2, 1, 'Phone'), (3, 2, 'SQL Guide');\n-- Delete a category, and its items will disappear due to ON DELETE CASCADE\nDELETE FROM categories WHERE id = 1;\nSELECT * FROM items;",
+                functions: "-- String, Math, and Date functions\nCREATE TABLE employees (id INT PRIMARY KEY, name VARCHAR(50), hire_date DATE, salary FLOAT);\nINSERT INTO employees VALUES (1, 'john doe', '2023-01-15', 55000.0);\nSELECT \n    UPPER(name) AS name_upper, \n    LENGTH(name) AS name_len, \n    YEAR(hire_date) AS joined_year, \n    ROUND(salary / 12, 2) AS monthly_salary\nFROM employees;",
+                unions: "-- Set Operations: UNION and UNION ALL\nCREATE TABLE active_users (id INT, name VARCHAR(50));\nCREATE TABLE archive_users (id INT, name VARCHAR(50));\nINSERT INTO active_users VALUES (1, 'Alice'), (2, 'Bob');\nINSERT INTO archive_users VALUES (3, 'Charlie'), (1, 'Alice');\n-- UNION removes duplicates, UNION ALL keeps them\nSELECT name FROM active_users \nUNION \nSELECT name FROM archive_users;",
+                tx: "-- Transactions with Savepoints and Rollbacks\nCREATE TABLE accounts (id INT PRIMARY KEY, balance FLOAT);\nINSERT INTO accounts VALUES (1, 1000.0), (2, 500.0);\nSTART TRANSACTION;\nUPDATE accounts SET balance = balance - 100 WHERE id = 1;\nSAVEPOINT p1;\nUPDATE accounts SET balance = balance + 100 WHERE id = 2;\n-- Oops, wrong recipient! Rollback to savepoint.\nROLLBACK TO SAVEPOINT p1;\nCOMMIT;\nSELECT * FROM accounts;"
+            };
+            editor.setValue(examples[type]);
+            executeQuery();
         }
 
-        function clearEditor() {
+        async function downloadSnapshot() {
+            if (!wasmReady || !window.getSnapshot) return;
+            const data = window.getSnapshot();
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mist_snapshot.snapshot`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function uploadSnapshot(event) {
+            const file = event.target.files[0];
+            if (!file || !wasmReady || !window.loadSnapshot) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const data = new Uint8Array(e.target.result);
+                const res = JSON.parse(window.loadSnapshot(data));
+                if (res.error) displayError(res.error);
+                else {
+                    displayResult({ type: 'message', message: 'Snapshot loaded successfully' });
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        document.getElementById('executeBtn').onclick = executeQuery;
+        document.getElementById('clearBtn').onclick = () => {
             editor.setValue('');
-            editor.focus();
-        }
+            document.getElementById('resultsContent').innerHTML = '<div style="color: var(--muted-foreground); font-size: 0.875rem;">No queries executed. Run a query to see results.</div>';
+            document.getElementById('executionTime').textContent = '';
+        };
+        document.getElementById('dropAllBtn').onclick = async () => {
+            if (!confirm('Are you sure you want to drop all tables? This cannot be undone.')) return;
+            try {
+                if (wasmReady && window.executeSQL) {
+                    const tablesJson = window.executeSQL("SHOW TABLES;");
+                    const tablesRes = JSON.parse(tablesJson);
+                    if (tablesRes.error) {
+                        displayError(tablesRes.error);
+                        return;
+                    }
 
-        function formatSQL() {
-            // Simple SQL formatting
-            let sql = editor.getValue();
-            sql = sql.replace(/\\bSELECT\\b/gi, 'SELECT')
-                     .replace(/\\bFROM\\b/gi, 'FROM')
-                     .replace(/\\bWHERE\\b/gi, 'WHERE')
-                     .replace(/\\bINSERT\\b/gi, 'INSERT')
-                     .replace(/\\bUPDATE\\b/gi, 'UPDATE')
-                     .replace(/\\bCREATE\\b/gi, 'CREATE')
-                     .replace(/\\bTABLE\\b/gi, 'TABLE');
-            editor.setValue(sql);
-        }
+                    if (tablesRes.rows && tablesRes.rows.length > 0) {
+                        for (const row of tablesRes.rows) {
+                            const tableName = row[0];
+                            window.executeSQL(`DROP TABLE IF EXISTS \`${tableName}\`;`);
+                        }
+                        displayResult({ type: 'message', message: `Successfully dropped ${tablesRes.rows.length} table(s).` });
+                    } else {
+                        displayResult({ type: 'message', message: 'No tables to drop.' });
+                    }
+                }
+            } catch (e) {
+                displayError(e.message);
+            }
+        };
+        document.getElementById('downloadSnapshotBtn').onclick = downloadSnapshot;
+        document.getElementById('uploadSnapshotBtn').onclick = () => document.getElementById('snapshotInput').click();
+        document.getElementById('snapshotInput').onchange = uploadSnapshot;
 
-        // Initialize WASM on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initWASM();
-        });
-        
-        // Also try to initialize immediately
         initWASM();
     </script>
-
-
-    <!-- Features Modal -->
-    <div id="featureModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">✨ MIST SQL Features</h2>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div style="background: var(--surface-light); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border-color); margin-bottom: 2rem;">
-                    <h3 style="color: var(--primary-color); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                        🚀 Complete MySQL Compatibility (Both Web & Native)
-                        <span style="background: #00b894; color: white; padding: 0.2rem 0.5rem; border-radius: 0.3rem; font-size: 0.8rem; font-weight: 600;">SHARED ENGINE</span>
-                    </h3>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">✅ Core Features:</h4>
-                        <ul style="color: var(--text-muted); line-height: 1.6; margin-left: 1rem; columns: 2; column-gap: 2rem;">
-                            <li>Complete DDL (CREATE/ALTER/DROP TABLE)</li>
-                            <li>Full DML (INSERT/SELECT/UPDATE/DELETE)</li>
-                            <li>All JOIN types (INNER, LEFT, RIGHT, CROSS)</li>
-                            <li>Aggregate functions (COUNT, SUM, AVG, MIN, MAX)</li>
-                            <li>35+ built-in functions (string, date, math)</li>
-                            <li>Scalar subqueries in SELECT and WHERE clauses (correlated and non-correlated)</li>
-                            <li>Advanced operators (LIKE, IN, BETWEEN, EXISTS with correlation)</li>
-                            <li>Transactions with nested support and savepoints</li>
-                            <li>Index management (CREATE/DROP INDEX)</li>
-                            <li>UNION operations</li>
-                            <li>Foreign key constraints with cascade</li>
-                            <li>Auto-increment columns</li>
-                            <li>All MySQL data types</li>
-                            <li>Query recording and playback</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="background: #d1ecf1; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #17a2b8; margin-bottom: 1rem;">
-                        <strong style="color: #0c5460;">Architecture Update:</strong> 
-                        <span style="color: #0c5460;">The web playground now uses the same SQL engine as the native MIST library, providing identical functionality through WebAssembly compilation.</span>
-                    </div>
-                    
-                    <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                            <thead>
-                                <tr style="background: var(--surface-light); border-bottom: 2px solid var(--border-color);">
-                                    <th style="padding: 0.75rem; text-align: left; color: var(--text-primary); font-weight: 600;">Deployment</th>
-                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Features</th>
-                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Environment</th>
-                                    <th style="padding: 0.75rem; text-align: center; color: var(--text-primary); font-weight: 600;">Size</th>
-                                </tr>
-                            </thead>
-                            <tbody style="color: var(--text-muted);">
-                                <tr style="border-bottom: 1px solid var(--border-color);">
-                                    <td style="padding: 0.75rem; font-weight: 500;">Web Playground (WASM)</td>
-                                    <td style="padding: 0.75rem; text-align: center;">✅ Complete</td>
-                                    <td style="padding: 0.75rem; text-align: center;">Web Browser</td>
-                                    <td style="padding: 0.75rem; text-align: center;">~24MB</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid var(--border-color);">
-                                    <td style="padding: 0.75rem; font-weight: 500;">Native Binary</td>
-                                    <td style="padding: 0.75rem; text-align: center;">✅ Complete + Daemon</td>
-                                    <td style="padding: 0.75rem; text-align: center;">Server/Desktop</td>
-                                    <td style="padding: 0.75rem; text-align: center;">~38MB</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div style="text-align: center;">
-                    <a href="https://github.com/abbychau/mist" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600;">📥 Download MIST →</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Modal functionality - placed after modals are in DOM
-        function openFeatureModal() {
-            document.getElementById('featureModal').style.display = 'block';
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-
-        // Close modal when clicking on <span> (x)
-        document.querySelectorAll('.close').forEach(closeBtn => {
-            closeBtn.onclick = function() {
-                this.closest('.modal').style.display = 'none';
-            }
-        });
-
-        // Close modal when clicking outside of it
-        window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
-        }
-
-        // Handle ESC key to close modals
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                document.querySelectorAll('.modal').forEach(modal => {
-                    if (modal.style.display === 'block') {
-                        modal.style.display = 'none';
-                    }
-                });
-            }
-        });
-    </script>
 </body>
+
 </html>

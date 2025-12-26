@@ -1,797 +1,307 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist - Enhanced In-Memory MySQL Database with Nested Transactions & Full SQL Compatibility</title>
+    <title>Mist - Enhanced In-Memory MySQL Database</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/go.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
 </head>
+
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <img src="mist-icon.svg" alt="Mist" class="logo">
-                <span class="brand-text">Mist</span>
+    <div class="layout-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="mist-icon.svg" alt="Mist" class="sidebar-logo">
+                <span class="sidebar-brand-text">Mist</span>
             </div>
-            <button class="nav-toggle" aria-label="Toggle navigation">
-                <span class="hamburger"></span>
-                <span class="hamburger"></span>
-                <span class="hamburger"></span>
+            <nav class="sidebar-nav">
+                <a href="#features" class="sidebar-link active">
+                    <i class="fa-solid fa-star"></i> Features
+                </a>
+                <a href="#installation" class="sidebar-link">
+                    <i class="fa-solid fa-box"></i> Installation
+                </a>
+                <a href="#usage" class="sidebar-link">
+                    <i class="fa-solid fa-book"></i> Usage
+                </a>
+                <a href="#daemon" class="sidebar-link">
+                    <i class="fa-solid fa-terminal"></i> Daemon
+                </a>
+                <a href="mysql_compatibility.html" class="sidebar-link">
+                    <i class="fa-solid fa-check-double"></i> Compatibility
+                </a>
+                <a href="https://github.com/abbychau/mist" target="_blank" class="sidebar-link">
+                    <i class="fa-brands fa-github"></i> GitHub
+                </a>
+                <a href="playground.html" class="sidebar-link playground-btn">
+                    <i class="fa-solid fa-play"></i> Try Online
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Mobile Toggle -->
+            <button class="mobile-nav-toggle btn-secondary" onclick="toggleSidebar()"
+                style="display: none; position: fixed; top: 1.5rem; right: 1.5rem; z-index: 1001; padding: 0.5rem; background: white; border: 1px solid var(--border); border-radius: 4px;">
+                ☰
             </button>
-            <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#installation">Installation</a>
-                <a href="#usage">Usage</a>
-                <a href="#daemon">Daemon Mode</a>
-                <a href="#operations">Operations</a>
-                <a href="playground.html" class="playground-link">Try Online</a>
-                <a href="mysql_compatibility.html">MySQL Compatibility</a>
-                <a href="https://github.com/abbychau/mist" target="_blank">GitHub <span class="external-icon">↗</span></a>
-            </div>
-        </div>
-    </nav>
 
-    <!-- Mobile Navigation Backdrop -->
-    <div class="nav-backdrop"></div>
-
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">                <h1 class="hero-title">
-                    <span class="hero-title-main">Mist</span>
-                    <span class="gradient-text">Enhanced In-Memory MySQL Database</span>
-                </h1><p class="hero-subtitle">
-                    A lightweight, thread-safe SQL database engine with complete MySQL-compatible syntax.
-                    Built for speed, simplicity, and seamless integration with nested transactions, savepoints, and full referential integrity.
-                </p>
-                <div class="hero-buttons">
-                    <a href="#installation" class="btn btn-primary">Get Started</a>
-                    <a href="https://github.com/abbychau/mist" class="btn btn-secondary" target="_blank">
-                        View on GitHub
-                    </a>
-                </div>
-            </div>
-            <div class="hero-demo">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-controls">
-                            <span class="control red"></span>
-                            <span class="control yellow"></span>
-                            <span class="control green"></span>
+            <!-- Hero -->
+            <section class="hero" id="hero">
+                <div class="container">
+                    <div class="hero-content">
+                        <h1 class="hero-title">
+                            <span class="hero-title-main">Mist Database</span>
+                            <span class="gradient-text">Enhanced In-Memory MySQL Engine</span>
+                        </h1>
+                        <p class="hero-subtitle">
+                            A lightweight, thread-safe SQL database with full MySQL syntax, nested transactions, and
+                            referential integrity. Perfect for Unit Testing, Embedded Prototyping, and Development.
+                        </p>
+                        <div class="hero-buttons">
+                            <a href="#installation" class="btn btn-primary">Start Building</a>
+                            <a href="playground.html" class="btn btn-secondary">Explore Demo</a>
                         </div>
-                        <span class="terminal-title">mist-demo.go</span>
-                    </div>
-                    <div class="terminal-body">                        <pre><code class="language-go">engine := mist.NewSQLEngine()
-
-// Create table with enhanced features
-engine.Execute(`CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(50),
-    birth_date DATE,
-    status ENUM('active', 'inactive') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-)`)
-
-// Insert data with new types
-engine.Execute("INSERT INTO users (email, name, birth_date, status) VALUES ('user@example.com', 'Alice', '1990-01-01', 'active')")
-
-// Nested transactions with savepoints
-engine.Execute("START TRANSACTION")
-engine.Execute("INSERT INTO users (email, name) VALUES ('bob@example.com', 'Bob')")
-
-engine.Execute("SAVEPOINT sp1")
-engine.Execute("UPDATE users SET status = 'inactive' WHERE name = 'Alice'")
-engine.Execute("ROLLBACK TO SAVEPOINT sp1") // Undo Alice update
-
-engine.Execute("COMMIT") // Bob remains, Alice unchanged
-
-// GROUP BY with aggregates
-result, _ := engine.Execute("SELECT status, COUNT(*) FROM users GROUP BY status")
-mist.PrintResult(result)</code></pre>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
-    <!-- Features Section -->
-    <section id="features" class="features">
-        <div class="container">
-            <h2 class="section-title">Core Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🚀</span> Lightning Fast</h3>
-                    <p>In-memory storage ensures blazing fast query execution with zero disk I/O overhead, dependency and latency.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔗</span> MySQL Compatible</h3>
-                    <p>Built with TiDB parser for full MySQL syntax compatibility. Original MySQL schemas work seamlessly without modifications.</p>
-                    <div class="feature-link">
-                        <a href="mysql_compatibility.html" class="compatibility-btn">📋 View Complete Compatibility Guide</a>
+            </section>
+
+            <!-- Features -->
+            <section id="features">
+                <div class="container">
+                    <h2 class="section-title">Why Mist?</h2>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <p>Pure <strong>in-memory</strong> operations for <strong>sub-millisecond</strong> query
+                                performance.</p>
+                        </div>
+                        <div class="feature-card">
+                            <p>Full <strong>MySQL syntax</strong> support via abbychau/mysql-parser. <strong>Swap-in
+                                    replacement</strong>.</p>
+                        </div>
+                        <div class="feature-card">
+                            <p><strong>Nested transactions</strong> and <strong>savepoints</strong> for complex state
+                                management.</p>
+                        </div>
+                        <div class="feature-card">
+                            <p><strong>AOF persistence</strong> and <strong>snapshots</strong> for data durability with
+                                instant recovery.</p>
+                        </div>
                     </div>
                 </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔄</span> Nested Transactions</h3>
-                    <p>Full nested transaction support with savepoints, rollback isolation, proper state management, and ACID properties.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔗</span> Referential Integrity</h3>
-                    <p>Complete foreign key support with automatic constraint validation and cascade actions for maintaining data consistency.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📊</span> Modern Data Types</h3>
-                    <p>Full support for advanced data types including dates, enums, decimals, and automatic timestamp management.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🛡️</span> Thread Safe</h3>
-                    <p>Concurrent operations are handled safely, making it perfect for multi-threaded applications.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔍</span> Advanced Querying</h3>
-                    <p>Comprehensive query capabilities including joins, subqueries, aggregation, and complex filtering with optimized performance.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📊</span> Query Recording</h3>
-                    <p>Built-in query recording for debugging, auditing, and performance analysis with thread-safe operations.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🎯</span> Precise Tracking</h3>
-                    <p>Record exact SQL queries as they're executed with immutable logs and zero performance overhead when disabled.</p>
-                </div>
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🧪</span> Testing & Debug</h3>
-                    <p>Perfect for unit testing, compliance logging, performance analysis, and migration tools.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+            </section>
 
-    <!-- Installation Section -->
-    <section id="installation" class="installation">
-        <div class="container">
-            <h2 class="section-title">Quick Installation</h2>
-            <div class="installation-options">
-                <div class="install-option">
-                    <h3>As a Go Library</h3>
-                    <div class="code-block">
-                        <pre><code class="language-bash">go get github.com/abbychau/mist</code></pre>
-                        <button class="copy-btn" onclick="copyToClipboard('go get github.com/abbychau/mist')">📋</button>
+            <!-- Installation -->
+            <section id="installation">
+                <div class="container">
+                    <h2 class="section-title">Installation</h2>
+                    <div class="usage-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" onclick="showTab('go-module')">Go Module</button>
+                            <button class="tab-btn" onclick="showTab('cli-install')">CLI Utility</button>
+                            <button class="tab-btn" onclick="showTab('docker-install')">Docker</button>
+                        </div>
+
+                        <div id="go-module" class="tab-content active">
+                            <div class="code-block">
+                                <pre><code class="language-bash">go get github.com/abbychau/mist</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard('go get github.com/abbychau/mist')">📋</button>
+                            </div>
+                        </div>
+                        <div id="cli-install" class="tab-content">
+                            <div class="code-block">
+                                <pre><code class="language-bash">git clone https://github.com/abbychau/mist
+cd mist && go install ./cmd/mist</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard('git clone https://github.com/abbychau/mist\ncd mist\ngo install ./cmd/mist')">📋</button>
+                            </div>
+                        </div>
+                        <div id="docker-install" class="tab-content">
+                            <div class="code-block">
+                                <pre><code class="language-bash">docker pull abbychau/mist:latest
+docker run -p 3306:3306 abbychau/mist:latest</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard('docker pull abbychau/mist:latest\ndocker run -p 3306:3306 abbychau/mist:latest')">📋</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="install-option">
-                    <h3>Standalone Application</h3>
-                    <div class="code-block">
-                        <pre><code class="language-bash">git clone https://github.com/abbychau/mist
-cd mist
-go mod tidy
-go build .</code></pre>
-                        <button class="copy-btn" onclick="copyToClipboard('git clone https://github.com/abbychau/mist\ncd mist\ngo mod tidy\ngo build .')">📋</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+            </section>
 
-    <!-- Usage Section -->
-    <section id="usage" class="usage">
-        <div class="container">
-            <h2 class="section-title">Getting Started</h2>                <div class="usage-tabs">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="showTab('library')">Library Usage</button>
-                    <button class="tab-btn" onclick="showTab('enhanced')">Enhanced Features</button>
-                    <button class="tab-btn" onclick="showTab('transactions')">Transactions</button>
-                    <button class="tab-btn" onclick="showTab('recording-tab')">Query Recording</button>
-                    <button class="tab-btn" onclick="showTab('interactive')">Interactive Mode</button>
-                    <button class="tab-btn" onclick="showTab('advanced')">Advanced Queries</button>
-                </div>
-                
-                <div id="library" class="tab-content active">
-                    <div class="code-example">                        <pre><code class="language-go">package main
+            <!-- Usage -->
+            <section id="usage">
+                <div class="container">
+                    <h2 class="section-title">Getting Started</h2>
+                    <div class="usage-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" onclick="showTab('lib-code')">Library</button>
+                            <button class="tab-btn" onclick="showTab('sql-code')">SQL Examples</button>
+                        </div>
 
-import (
-    "fmt"
-    "log"
-    "github.com/abbychau/mist"
-)
+                        <div id="lib-code" class="tab-content active">
+                            <div class="code-block">
+                                <pre><code class="language-go">// Full MySQL persistence and engine setup
+engine := mist.NewSQLEngineWithOptions(mist.PersistenceOptions{
+    AofPath: "data.aof",
+    SyncInterval: time.Second,
+})
 
-func main() {
-    // Create a new SQL engine
-    engine := mist.NewSQLEngine()
-
-    // Create tables with enhanced features
-    _, err := engine.Execute(`CREATE TABLE companies (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    _, err = engine.Execute(`CREATE TABLE products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        company_id INT NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        price FLOAT,
-        category ENUM('Electronics', 'Books', 'Clothing') DEFAULT 'Electronics',
-        launch_date DATE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_name (name),
-        FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
-    )`)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Insert data with referential integrity
-    engine.Execute("INSERT INTO companies (name) VALUES ('Tech Corp')")
-    
-    queries := []string{
-        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'Laptop Pro', 999.99, 'Electronics', '2024-01-15')",
-        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'SQL Guide', 29.99, 'Books', '2024-02-20')",
-        "INSERT INTO products (company_id, name, price, category, launch_date) VALUES (1, 'Wireless Headphones', 199.99, 'Electronics', '2024-03-10')",
-    }
-    
-    for _, query := range queries {
-        _, err := engine.Execute(query)
-        if err != nil {
-            log.Fatal(err)
-        }
-    }
-
-    // UPDATE automatically updates the updated_at timestamp
-    engine.Execute("UPDATE products SET price = 899.99 WHERE name = 'Laptop Pro'")
-
-    // Query with GROUP BY and aggregates
-    result, err := engine.Execute(`
-        SELECT category, COUNT(*) as product_count, AVG(price) as avg_price
-        FROM products 
-        WHERE price > 50 
-        GROUP BY category
-        ORDER BY avg_price DESC
-    `)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Print results
-    mist.PrintResult(result)
-    
-    // Foreign key constraints prevent invalid operations
-    // This would fail: INSERT INTO products (company_id, name) VALUES (999, 'Invalid Product')
-    // This demonstrates referential integrity in action
-}</code></pre>
-                    </div>                </div>
-
-                <div id="enhanced" class="tab-content">
-                    <div class="code-example">
-                        <pre><code class="language-go">package main
-
-import (
-    "fmt"
-    "github.com/abbychau/mist"
-)
-
-func main() {
-    engine := mist.NewSQLEngine()
-    
-    // 1. Enhanced Data Types & Constraints
-    engine.Execute(`CREATE TABLE companies (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL UNIQUE,
-        founded_date DATE,
-        type ENUM('startup', 'corporation', 'nonprofit') DEFAULT 'startup',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )`)
-    
-    // 2. Foreign Key Relationships with Actions
-    engine.Execute(`CREATE TABLE employees (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        company_id INT NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        name VARCHAR(100),
-        hire_date DATE,
-        status ENUM('active', 'inactive', 'terminated') DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
-    )`)
-    
-    // 3. Data with Enhanced Types
-    engine.Execute("INSERT INTO companies (name, founded_date, type) VALUES ('Tech Corp', '2020-01-15', 'startup')")
-    engine.Execute("INSERT INTO employees (company_id, email, name, hire_date, status) VALUES (1, 'john@techcorp.com', 'John Smith', '2024-01-01', 'active')")
-    
-    // 4. Automatic Timestamp Updates
-    engine.Execute("UPDATE employees SET name = 'John A. Smith' WHERE id = 1")
-    // ^ This automatically updates the updated_at field
-    
-    // 5. GROUP BY with Enhanced Aggregates
-    result, _ := engine.Execute(`
-        SELECT 
-            c.type,
-            COUNT(e.id) as employee_count,
-            AVG(DATEDIFF(CURDATE(), e.hire_date)) as avg_tenure_days
-        FROM companies c
-        LEFT JOIN employees e ON c.id = e.company_id
-        GROUP BY c.type
-        HAVING employee_count > 0
-    `)
-    
-    fmt.Println("Company statistics by type:")
-    mist.PrintResult(result)
-    
-    // 6. Referential Integrity in Action
-    // Foreign key constraints prevent orphaned records:
-    // This would fail: engine.Execute("INSERT INTO employees (company_id, email, name) VALUES (999, 'test@example.com', 'Test User')")
-    
-    // CASCADE DELETE: Deleting a company removes all its employees
-    // engine.Execute("DELETE FROM companies WHERE id = 1") // Would cascade to employees
-    
-    // 7. UNIQUE Constraints prevent duplicates
-    // This would fail: engine.Execute("INSERT INTO employees (company_id, email, name) VALUES (1, 'john@techcorp.com', 'Another John')")
-    
-    // 8. ENUM Validation
-    // This would fail: engine.Execute("UPDATE employees SET status = 'invalid_status' WHERE id = 1")
-    
-    fmt.Println("\n✅ All enhanced features working correctly!")
-    fmt.Println("🔑 Foreign key constraints ensure data integrity")
-    fmt.Println("📅 DATE types handle proper date validation")
-    fmt.Println("🎯 ENUM types enforce valid values")
-    fmt.Println("🔒 UNIQUE constraints prevent duplicates")
-    fmt.Println("⏰ Timestamps update automatically")
-    fmt.Println("📊 GROUP BY works with all aggregate functions")
-}</code></pre>
-                    </div>
-                </div>
-
-                <div id="transactions" class="tab-content">
-                    <div class="code-example">
-                        <pre><code class="language-go">package main
-
-import (
-    "fmt"
-    "log"
-    "github.com/abbychau/mist"
-)
-
-func main() {
-    engine := mist.NewSQLEngine()
-
-    // Setup test table
-    engine.Execute(`CREATE TABLE accounts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(50) NOT NULL,
-        balance DECIMAL(10,2) NOT NULL DEFAULT 0.00
-    )`)
-
-    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Alice', 1000.00)")
-    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Bob', 500.00)")
-
-    fmt.Println("=== Basic Transactions ===")
-
-    // Basic transaction with commit
-    engine.Execute("START TRANSACTION")
-    engine.Execute("UPDATE accounts SET balance = balance - 100 WHERE name = 'Alice'")
-    engine.Execute("UPDATE accounts SET balance = balance + 100 WHERE name = 'Bob'")
-    engine.Execute("COMMIT") // Changes are permanent
-
-    fmt.Println("=== Nested Transactions ===")
-
-    // Nested transactions with selective rollback
-    engine.Execute("START TRANSACTION") // Level 1
-    engine.Execute("UPDATE accounts SET balance = balance - 50 WHERE name = 'Alice'")
-
-    engine.Execute("BEGIN") // Level 2 (nested)
-    engine.Execute("UPDATE accounts SET balance = balance + 200 WHERE name = 'Bob'")
-    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('Charlie', 300.00)")
-    engine.Execute("ROLLBACK") // Rollback level 2 only (Charlie gone, Bob's +200 undone)
-
-    engine.Execute("COMMIT") // Commit level 1 (Alice's -50 remains)
-
-    fmt.Println("=== Savepoints ===")
-
-    // Advanced savepoint usage
-    engine.Execute("START TRANSACTION")
-    engine.Execute("UPDATE accounts SET balance = balance - 25 WHERE name = 'Alice'")
-
-    engine.Execute("SAVEPOINT sp1") // Create savepoint
-    engine.Execute("UPDATE accounts SET balance = balance + 75 WHERE name = 'Bob'")
-    engine.Execute("INSERT INTO accounts (name, balance) VALUES ('David', 150.00)")
-
-    engine.Execute("SAVEPOINT sp2") // Another savepoint
-    engine.Execute("UPDATE accounts SET balance = balance * 1.1 WHERE name = 'Alice'") // 10% bonus
-
-    // Rollback to sp1 (undoes David insert, Bob +75, and Alice bonus)
-    engine.Execute("ROLLBACK TO SAVEPOINT sp1")
-
-    engine.Execute("RELEASE SAVEPOINT sp1") // Clean up savepoint
-    engine.Execute("COMMIT") // Commit remaining changes
-
-    // Query final state
-    result, _ := engine.Execute("SELECT name, balance FROM accounts ORDER BY name")
-    fmt.Println("\nFinal account balances:")
-    mist.PrintResult(result)
-
-    fmt.Println("\n=== Transaction Error Handling ===")
-
-    // Demonstrate transaction isolation
-    engine.Execute("START TRANSACTION")
-    engine.Execute("UPDATE accounts SET balance = 999999 WHERE name = 'Alice'")
-
-    // In a real scenario, you might check business rules here
-    // and rollback if they fail
-    engine.Execute("ROLLBACK") // Undo the unrealistic balance
-
-    fmt.Println("✅ Transaction features:")
-    fmt.Println("  🔄 Nested transactions with independent rollback")
-    fmt.Println("  📍 Named savepoints for fine-grained control")
-    fmt.Println("  🔒 Full ACID properties within memory scope")
-    fmt.Println("  🛡️ Automatic state restoration on rollback")
-    fmt.Println("  🎯 Thread-safe transaction management")
-}</code></pre>
-                    </div>
-                </div>
-
-                <div id="recording-tab" class="tab-content">
-                    <div class="code-example">
-                        <pre><code class="language-go">package main
-
-import (
-    "fmt"
-    "github.com/abbychau/mist"
-)
-
-func main() {
-    engine := mist.NewSQLEngine()
-    
-    // Setup initial data
-    engine.Execute("CREATE TABLE orders (id INT, customer VARCHAR(50), amount FLOAT)")
-    
-    // Start recording all queries
-    engine.StartRecording()
-    
-    // Execute business logic queries
-    engine.Execute("INSERT INTO orders VALUES (1, 'Alice', 299.99)")
-    engine.Execute("INSERT INTO orders VALUES (2, 'Bob', 149.50)")
-    engine.Execute("UPDATE orders SET amount = 249.99 WHERE id = 1")
-    engine.Execute("SELECT customer, SUM(amount) FROM orders GROUP BY customer")
-    
-    // Stop recording
-    engine.EndRecording()
-    
-    // Analyze recorded queries
-    queries := engine.GetRecordedQueries()
-    fmt.Printf("Business logic executed %d queries:\n", len(queries))
-    
-    for i, query := range queries {
-        fmt.Printf("%d. %s\n", i+1, query)
-    }
-    
-    // Use for debugging, testing, or audit logs
-    // Perfect for understanding query execution patterns
-}</code></pre>
-                    </div>
-                </div>
-
-                <div id="interactive" class="tab-content">
-                    <div class="code-example">                        <pre><code class="language-bash"># Start interactive mode
-./mist -i
-
-# Create table with enhanced features:
-mist> CREATE TABLE companies (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    type ENUM('startup', 'corporation') DEFAULT 'startup',
-    founded DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-Table 'companies' created successfully.
-
-mist> CREATE TABLE employees (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    company_id INT NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    hire_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
-);
-Table 'employees' created successfully.
-
-# Insert data with enhanced types:
-mist> INSERT INTO companies (name, type, founded) VALUES ('Tech Corp', 'startup', '2020-01-15');
-1 row inserted.
-
-mist> INSERT INTO employees (company_id, email, hire_date) VALUES (1, 'john@techcorp.com', '2024-01-01');
-1 row inserted.
-
-# UPDATE automatically updates timestamp:
-mist> UPDATE employees SET email = 'john.smith@techcorp.com' WHERE id = 1;
-1 row updated. (updated_at automatically set)
-
-# GROUP BY with aggregates:
-mist> SELECT c.type, COUNT(e.id) as employee_count FROM companies c LEFT JOIN employees e ON c.id = e.company_id GROUP BY c.type;
-+-----------+----------------+
-| type      | employee_count |
-+-----------+----------------+
-| startup   | 1              |
-+-----------+----------------+</code></pre>
-                    </div>
-                </div>
-
-                <div id="advanced" class="tab-content">
-                    <div class="code-example">                        <pre><code class="language-sql">-- Enhanced data types and constraints
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    full_name VARCHAR(100),
-    birth_date DATE,
-    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Foreign key relationships with CASCADE actions
-CREATE TABLE departments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    manager_id INT,
-    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
-CREATE TABLE employees (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    department_id INT,
-    hire_date DATE NOT NULL,
-    salary DECIMAL(10,2),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
-);
-
--- Complex JOINs with enhanced GROUP BY
+// Advanced Schema & Querying
+engine.Execute("CREATE TABLE orders (id INT, amount DECIMAL(10,2), status ENUM('paid', 'pending'))")
+result, _ := engine.Execute(`
+    SELECT status, COUNT(*) as count, SUM(amount) as total 
+    FROM orders GROUP BY status 
+    HAVING total > 500
+`)</code></pre>
+                            </div>
+                        </div>
+                        <div id="sql-code" class="tab-content">
+                            <div class="code-block">
+                                <pre><code class="language-sql">-- JOIN with Aggregation and Conditional Logic
 SELECT 
-    d.name AS department,
-    u.status,
-    COUNT(e.id) AS employee_count,
-    AVG(e.salary) AS avg_salary,
-    MIN(e.hire_date) AS earliest_hire,
-    MAX(e.hire_date) AS latest_hire
-FROM departments d
-LEFT JOIN employees e ON d.id = e.department_id
-LEFT JOIN users u ON e.user_id = u.id
-GROUP BY d.name, u.status
-HAVING COUNT(e.id) > 0
-ORDER BY avg_salary DESC;
+    c.name AS category,
+    COUNT(p.id) AS product_count,
+    ROUND(AVG(p.price), 2) AS avg_price,
+    SUM(CASE WHEN p.stock < 10 THEN 1 ELSE 0 END) AS low_stock_items
+FROM categories c
+LEFT JOIN products p ON c.id = p.category_id
+GROUP BY c.id;
 
--- Date operations and ENUM validation
-INSERT INTO users (email, username, full_name, birth_date, status) 
-VALUES ('john@example.com', 'johnsmith', 'John Smith', '1985-06-15', 'active');
-
--- UPDATE automatically updates timestamp
-UPDATE users SET full_name = 'John A. Smith' WHERE username = 'johnsmith';
-
--- Foreign key constraints ensure referential integrity
--- This would succeed: 
-INSERT INTO employees (user_id, department_id, hire_date, salary) 
-VALUES (1, 1, '2024-01-15', 75000.00);
-
--- This would fail due to foreign key constraint:
--- INSERT INTO employees (user_id, department_id, hire_date, salary) 
--- VALUES (999, 1, '2024-01-15', 75000.00);
-
--- CASCADE DELETE: Deleting a user cascades to employee records
--- SET NULL: Deleting a department sets employee department_id to NULL
-DELETE FROM users WHERE id = 1; -- Cascades to employees table
-
--- Advanced Transaction Control
-START TRANSACTION;
-  INSERT INTO users (email, username, full_name) VALUES ('manager@corp.com', 'manager1', 'Jane Manager');
-
-  SAVEPOINT before_dept_changes;
-    INSERT INTO departments (name, manager_id) VALUES ('Engineering', LAST_INSERT_ID());
-
-    BEGIN; -- Nested transaction
-      INSERT INTO employees (user_id, department_id, hire_date, salary) VALUES (2, 1, '2024-01-01', 120000);
-      UPDATE employees SET salary = salary * 1.1 WHERE department_id = 1; -- 10% raise
-    ROLLBACK; -- Rollback nested transaction (no raises applied)
-
-  -- Keep department but rollback to before department changes if needed
-  -- ROLLBACK TO SAVEPOINT before_dept_changes;
-
-  RELEASE SAVEPOINT before_dept_changes;
-COMMIT; -- Commit all remaining changes</code></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Daemon Mode Section -->
-    <section id="daemon" class="daemon">
-        <div class="container">
-            <h2 class="section-title">🚀 MySQL-Compatible Daemon Server</h2>
-            
-            <div class="installation-options">
-                <div class="install-option">
-                    <h3>Starting the Daemon</h3>
-                    <div class="code-block">
-                        <pre><code class="language-bash"># Start on default MySQL port (3306)
-go run . -d
-# or
-go run . --daemon
-
-# Start on custom port
-go run . -d --port 3307
-go run . --daemon --port 8080
-
-# Build and run as standalone
-go build -o mistdb .
-./mistdb -d --port 3306
-
-# Run in background for production
-nohup ./mistdb -d --port 3306 > mist.log 2>&1 &</code></pre>
-                        <button class="copy-btn" onclick="copyToClipboard('go run . -d\ngo run . --daemon\ngo run . -d --port 3307')">📋</button>
-                    </div>
-                </div>
-
-                <div class="install-option">
-                    <h3>Connecting to the Daemon</h3>
-                    <div class="code-block">
-                        <pre><code class="language-bash"># Using telnet (most common for testing)
-telnet localhost 3306
-
-# Using netcat
-nc localhost 3306
-
-# Any TCP client can connect
-# The daemon uses a simple text-based protocol</code></pre>
-                        <button class="copy-btn" onclick="copyToClipboard('telnet localhost 3306')">📋</button>
-                    </div>
-                    <h4>Key Features</h4>
-                    <ul class="daemon-features">
-                        <li>✅ MySQL-Compatible port (3306)</li>
-                        <li>✅ Multiple concurrent connections</li>
-                        <li>✅ Real-time query performance timing</li>
-                        <li>✅ Graceful shutdown handling</li>
-                        <li>✅ Full SQL support with all Mist features</li>
-                        <li>✅ Connection tracking and logging</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="daemon-demo">
-                <h3>Interactive Session Example</h3>
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-controls">
-                            <span class="control red"></span>
-                            <span class="control yellow"></span>
-                            <span class="control green"></span>
+-- Correlated Subquery support
+SELECT name, (
+    SELECT COUNT(*) FROM orders WHERE user_id = u.id
+) as total_orders FROM users u;</code></pre>
+                            </div>
                         </div>
-                        <span class="terminal-title">telnet localhost 3306</span>
-                    </div>
-                    <div class="terminal-body">
-                        <pre><code class="language-sql">$ telnet localhost 3306
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-Welcome to Mist MySQL-compatible database (Connection #1)
-Type 'help' for commands, 'quit' to exit
-
-mist> CREATE TABLE products (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    price DECIMAL(10,2),
-    category ENUM('Electronics', 'Books', 'Clothing') DEFAULT 'Electronics',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-Table products created successfully
-Query OK (234.5µs)
-
-mist> INSERT INTO products (name, price, category) VALUES 
-    ('Laptop Pro', 999.99, 'Electronics'),
-    ('SQL Guide', 29.99, 'Books'),
-    ('Wireless Mouse', 49.99, 'Electronics');
-Insert successful
-Query OK (123.2µs)
-
-mist> SELECT category, COUNT(*) as count, AVG(price) as avg_price 
-      FROM products 
-      GROUP BY category 
-      ORDER BY avg_price DESC;
-+-------------+-------+-----------+
-| category    | count | avg_price |
-+-------------+-------+-----------+
-| Electronics | 2     | 524.99    |
-| Books       | 1     | 29.99     |
-+-------------+-------+-----------+
-2 rows in set (89.3µs)
-
-mist> SELECT name FROM products 
-      WHERE price > (SELECT AVG(price) FROM products);
-+-----------+
-| name      |
-+-----------+
-| Laptop Pro|
-+-----------+
-1 row in set (156.7µs)
-
-mist> help
-Available SQL commands:
-- CREATE TABLE, ALTER TABLE, DROP TABLE
-- INSERT, SELECT, UPDATE, DELETE  
-- START TRANSACTION, COMMIT, ROLLBACK
-- CREATE INDEX, DROP INDEX, SHOW INDEX
-- SHOW TABLES
-Type 'quit' to exit
-
-mist> quit
-Bye!
-Connection closed by foreign host.</code></pre>
                     </div>
                 </div>
-            </div>
+            </section>
 
-        </div>
-    </section>
+            <!-- Daemon -->
+            <section id="daemon">
+                <div class="container">
+                    <h2 class="section-title">Background Operation</h2>
+                    <div class="usage-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" onclick="showTab('daemon-mode')">Daemon Mode</button>
+                            <button class="tab-btn" onclick="showTab('docker-compose')">Docker Compose</button>
+                            <button class="tab-btn" onclick="showTab('docker-run')">Docker Run</button>
+                        </div>
 
-    <!-- Operations Section -->
-    <section id="operations" class="examples">
-        <div class="container">
-            <h2 class="section-title">Supported Operations</h2>
-            <div class="operations-grid">
-                <div class="operation-card">
-                    <h3>🏗️ Complete SQL Operations</h3>
-                    <p>Full support for table operations (CREATE/ALTER/DROP), data manipulation (INSERT/UPDATE/DELETE), and advanced querying with JOINs, subqueries, and aggregates. Includes AUTO_INCREMENT, UNIQUE constraints, and foreign key relationships with CASCADE actions.</p>
-                </div>
-                <div class="operation-card">
-                    <h3>🔄 Advanced Transactions</h3>
-                    <p>Full nested transaction support with unlimited depth, savepoints, and ACID properties. Thread-safe transaction management with ROLLBACK TO SAVEPOINT and RELEASE SAVEPOINT capabilities for fine-grained control.</p>
-                </div>
-                <div class="operation-card">
-                    <h3>🗂️ Modern Data Types</h3>
-                    <p>Native support for DATE, ENUM, DECIMAL, TIMESTAMP with automatic ON UPDATE CURRENT_TIMESTAMP, and comprehensive referential integrity enforcement with foreign key constraints and validation.</p>
-                </div>
-            </div>
-            <div class="compatibility-link">
-                <p><strong>Need detailed compatibility information?</strong> <a href="mysql_compatibility.html" class="btn-link">View complete MySQL compatibility guide →</a></p>
-            </div>
-        </div>
-    </section>
+                        <div id="daemon-mode" class="tab-content active">
+                            <div class="code-block">
+                                <pre><code class="language-bash"># Start Mist in daemon mode
+./mist -d --port 3306 --persist data.aof
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">            <div class="footer-content">
-                <div class="footer-brand">
-                    <img src="mist-icon.svg" alt="Mist" class="logo">
-                    <span class="brand-text">Mist</span>
-                </div>
-                <div class="footer-links">
-                    <a href="https://github.com/abbychau/mist" target="_blank">GitHub</a>
-                    <a href="https://github.com/abbychau/mist/issues" target="_blank">Issues</a>
-                    <a href="https://github.com/abbychau/mist/blob/main/LICENSE" target="_blank">License</a>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 Mist Database. Built with ❤️ by <a href="https://github.com/abbychau" target="_blank" >Abby</a>, who also created <a href="https://gtsdb.abby.md" target="_blank">GTSDB</a>.</p>
-            </div>
-        </div>
-    </footer>
+# With snapshot support
+./mist -d --port 3306 --persist data.aof --snapshot data.rdb</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard('./mist -d --port 3306 --persist data.aof')">📋</button>
+                            </div>
+                        </div>
+                        <div id="docker-compose" class="tab-content">
+                            <div class="code-block">
+                                <pre><code class="language-yaml">services:
+  mist:
+    image: abbychau/mist:latest
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data:/data
+    command: ["-d", "--port", "3306", "--persist", "/data/mist.aof"]</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard(`services:\n  mist:\n    image: abbychau/mist:latest\n    ports:\n      - &quot;3306:3306&quot;\n    volumes:\n      - ./data:/data\n    command: [&quot;-d&quot;, &quot;--port&quot;, &quot;3306&quot;, &quot;--persist&quot;, &quot;/data/mist.aof&quot;]`)">📋</button>
+                            </div>
+                        </div>
+                        <div id="docker-run" class="tab-content">
+                            <div class="code-block">
+                                <pre><code class="language-bash"># Run with persistence
+docker run -p 3306:3306 -v ./data:/data \\
+  abbychau/mist:latest -d --port 3306 --persist /data/mist.aof
 
-    <script src="script.js"></script>
+# Run without persistence
+docker run -p 3306:3306 abbychau/mist:latest</code></pre>
+                                <button class="copy-btn"
+                                    onclick="copyToClipboard('docker run -p 3306:3306 -v ./data:/data abbychau/mist:latest -d --port 3306 --persist /data/mist.aof')">📋</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="container">
+                    <div class="footer-content">
+                        <div class="footer-brand">
+                            <span class="sidebar-brand-text">Mist</span>
+                        </div>
+                        <div class="footer-links">
+                            <a href="https://github.com/abbychau/mist">GitHub</a>
+                            <a href="mysql_compatibility.html">Docs</a>
+                            <a href="playground.html">Demo</a>
+                        </div>
+                    </div>
+                    <div class="footer-bottom">
+                        <p>&copy; 2025 Mist. by <a href="https://github.com/abbychau">Abby Chau</a></p>
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        function showTab(id) {
+            // Find the parent container of the clicked button
+            const parentContainer = event.target.closest('.usage-tabs');
+
+            // Only toggle tabs within this specific container
+            parentContainer.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            parentContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied!');
+            });
+        }
+
+        // Active link highlighting
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.sidebar-link');
+            let current = '';
+            sections.forEach(s => {
+                if (pageYOffset >= s.offsetTop - 120) current = s.getAttribute('id');
+            });
+            navLinks.forEach(l => {
+                l.classList.remove('active');
+                if (l.getAttribute('href') === `#${current}`) l.classList.add('active');
+            });
+        });
+
+        hljs.highlightAll();
+    </script>
 </body>
+
 </html>

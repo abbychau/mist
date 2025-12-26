@@ -1,10 +1,19 @@
 package mist
 
 import (
+	"encoding/gob"
 	"fmt"
 	"strings"
 	"sync"
 )
+
+func init() {
+	gob.Register(int64(0))
+	gob.Register(float64(0))
+	gob.Register("")
+	gob.Register(false)
+	gob.Register([]interface{}{})
+}
 
 // ColumnType represents the data type of a column
 type ColumnType int
@@ -838,7 +847,7 @@ func validateYearFormat(yearStr string) error {
 	}
 
 	yearStr = strings.TrimSpace(yearStr)
-	
+
 	// Try to parse as integer
 	var year int
 	n, err := fmt.Sscanf(yearStr, "%d", &year)

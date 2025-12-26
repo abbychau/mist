@@ -141,7 +141,7 @@ func executeInsertValues(db *Database, table *Table, stmt *ast.InsertStmt) error
 				}
 
 				// If value is NULL or 0, auto-generate it
-				if value == nil || (value != nil && value.(int64) == 0) {
+				if value == nil || value.(int64) == 0 {
 					rowValues[colIndex] = table.GetNextAutoIncrementValue()
 				} else {
 					rowValues[colIndex] = value
@@ -628,7 +628,7 @@ func evaluateOnDuplicateExpression(expr ast.ExprNode, table *Table, currentRow R
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Perform the operation
 		switch e.Op {
 		case opcode.Plus:

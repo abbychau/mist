@@ -1,10 +1,18 @@
 package mist
 
 import (
+	"encoding/gob"
 	"fmt"
 	"strings"
 	"sync"
 )
+
+func init() {
+	gob.Register(int64(0))
+	gob.Register(float64(0))
+	gob.Register("")
+	gob.Register(false)
+}
 
 // IndexType represents different types of indexes
 type IndexType int
@@ -31,27 +39,27 @@ func (it IndexType) String() string {
 
 // Index represents a database index
 type Index struct {
-	Name        string
-	TableName   string
-	ColumnName  string   // For single-column indexes (backward compatibility)
-	ColumnNames []string // For multi-column indexes (composite)
-	Type        IndexType
-	Data        map[interface{}][]int // value -> row indexes
-	IsParsedOnly bool                 // True for indexes that are parsed but not functionally implemented
-	mutex       sync.RWMutex
+	Name         string
+	TableName    string
+	ColumnName   string   // For single-column indexes (backward compatibility)
+	ColumnNames  []string // For multi-column indexes (composite)
+	Type         IndexType
+	Data         map[interface{}][]int // value -> row indexes
+	IsParsedOnly bool                  // True for indexes that are parsed but not functionally implemented
+	mutex        sync.RWMutex
 }
 
 // NewIndex creates a new single-column index
 func NewIndex(name, tableName, columnName string, indexType IndexType) *Index {
 	isParsedOnly := indexType == CompositeIndex || indexType == FullTextIndex
-	
+
 	return &Index{
-		Name:        name,
-		TableName:   tableName,
-		ColumnName:  columnName,
-		ColumnNames: []string{columnName},
-		Type:        indexType,
-		Data:        make(map[interface{}][]int),
+		Name:         name,
+		TableName:    tableName,
+		ColumnName:   columnName,
+		ColumnNames:  []string{columnName},
+		Type:         indexType,
+		Data:         make(map[interface{}][]int),
 		IsParsedOnly: isParsedOnly,
 	}
 }
@@ -59,14 +67,14 @@ func NewIndex(name, tableName, columnName string, indexType IndexType) *Index {
 // NewCompositeIndex creates a new multi-column index
 func NewCompositeIndex(name, tableName string, columnNames []string, indexType IndexType) *Index {
 	isParsedOnly := indexType == CompositeIndex || indexType == FullTextIndex
-	
+
 	return &Index{
-		Name:        name,
-		TableName:   tableName,
-		ColumnName:  strings.Join(columnNames, ","), // For backward compatibility
-		ColumnNames: columnNames,
-		Type:        indexType,
-		Data:        make(map[interface{}][]int),
+		Name:         name,
+		TableName:    tableName,
+		ColumnName:   strings.Join(columnNames, ","), // For backward compatibility
+		ColumnNames:  columnNames,
+		Type:         indexType,
+		Data:         make(map[interface{}][]int),
 		IsParsedOnly: isParsedOnly,
 	}
 }
@@ -211,14 +219,14 @@ func normalizeIndexValue(value interface{}) interface{} {
 
 // IndexManager manages all indexes for the database
 type IndexManager struct {
-	indexes map[string]*Index // index name -> index
+	Indexes map[string]*Index // index name -> index
 	mutex   sync.RWMutex
 }
 
 // NewIndexManager creates a new index manager
 func NewIndexManager() *IndexManager {
 	return &IndexManager{
-		indexes: make(map[string]*Index),
+		Indexes: make(map[string]*Index),
 	}
 }
 
@@ -233,7 +241,7 @@ func (im *IndexManager) CreateCompositeIndex(name, tableName string, columnNames
 	defer im.mutex.Unlock()
 
 	// Check if index already exists
-	if _, exists := im.indexes[strings.ToLower(name)]; exists {
+	if _, exists := im.Indexes[strings.ToLower(name)]; exists {
 		return fmt.Errorf("index %s already exists", name)
 	}
 
@@ -257,7 +265,7 @@ func (im *IndexManager) CreateCompositeIndex(name, tableName string, columnNames
 		return fmt.Errorf("failed to build index: %v", err)
 	}
 
-	im.indexes[strings.ToLower(name)] = index
+	im.Indexes[strings.ToLower(name)] = index
 	return nil
 }
 
@@ -266,11 +274,11 @@ func (im *IndexManager) DropIndex(name string) error {
 	im.mutex.Lock()
 	defer im.mutex.Unlock()
 
-	if _, exists := im.indexes[strings.ToLower(name)]; !exists {
+	if _, exists := im.Indexes[strings.ToLower(name)]; !exists {
 		return fmt.Errorf("index %s does not exist", name)
 	}
 
-	delete(im.indexes, strings.ToLower(name))
+	delete(im.Indexes, strings.ToLower(name))
 	return nil
 }
 
@@ -279,7 +287,7 @@ func (im *IndexManager) GetIndex(name string) (*Index, bool) {
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
-	index, exists := im.indexes[strings.ToLower(name)]
+	index, exists := im.Indexes[strings.ToLower(name)]
 	return index, exists
 }
 
@@ -289,7 +297,7 @@ func (im *IndexManager) GetIndexesForTable(tableName, columnName string) []*Inde
 	defer im.mutex.RUnlock()
 
 	var result []*Index
-	for _, index := range im.indexes {
+	for _, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) &&
 			(columnName == "" || strings.EqualFold(index.ColumnName, columnName)) {
 			result = append(result, index)
@@ -303,7 +311,7 @@ func (im *IndexManager) UpdateIndexes(tableName string, rowIndex int, oldRow, ne
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
-	for _, index := range im.indexes {
+	for _, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) {
 			// Update the index with the new row data
 			// Find the column index in the table
@@ -352,7 +360,7 @@ func (im *IndexManager) AddRowToIndexes(tableName string, rowIndex int, row Row,
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
-	for _, index := range im.indexes {
+	for _, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) {
 			colIndex := table.GetColumnIndex(index.ColumnName)
 			if colIndex != -1 && colIndex < len(row.Values) {
@@ -367,7 +375,7 @@ func (im *IndexManager) RemoveRowFromIndexes(tableName string, rowIndex int, row
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
-	for _, index := range im.indexes {
+	for _, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) {
 			colIndex := table.GetColumnIndex(index.ColumnName)
 			if colIndex != -1 && colIndex < len(row.Values) {
@@ -383,7 +391,7 @@ func (im *IndexManager) ListIndexes() []string {
 	defer im.mutex.RUnlock()
 
 	var names []string
-	for name := range im.indexes {
+	for name := range im.Indexes {
 		names = append(names, name)
 	}
 	return names
@@ -394,7 +402,7 @@ func (im *IndexManager) ClearTableIndexes(tableName string) {
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
-	for _, index := range im.indexes {
+	for _, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) {
 			index.mutex.Lock()
 			index.Data = make(map[interface{}][]int)
@@ -410,7 +418,7 @@ func (im *IndexManager) DropTableIndexes(tableName string) {
 
 	// Collect indexes to delete
 	var indexesToDelete []string
-	for name, index := range im.indexes {
+	for name, index := range im.Indexes {
 		if strings.EqualFold(index.TableName, tableName) {
 			indexesToDelete = append(indexesToDelete, name)
 		}
@@ -418,6 +426,6 @@ func (im *IndexManager) DropTableIndexes(tableName string) {
 
 	// Delete the collected indexes
 	for _, name := range indexesToDelete {
-		delete(im.indexes, name)
+		delete(im.Indexes, name)
 	}
 }

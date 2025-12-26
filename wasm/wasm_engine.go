@@ -1,8 +1,10 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -109,14 +111,14 @@ func (w *WASMSQLEngine) splitSQLStatements(query string) []string {
 	// Simple split on semicolon - could be improved to handle quoted strings
 	parts := strings.Split(query, ";")
 	var statements []string
-	
+
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed != "" {
 			statements = append(statements, trimmed)
 		}
 	}
-	
+
 	return statements
 }
 
@@ -133,7 +135,7 @@ func (w *WASMSQLEngine) formatResultForWASM(result interface{}) interface{} {
 			}
 			jsRows[i] = jsRow
 		}
-		
+
 		return map[string]interface{}{
 			"type":    "select",
 			"columns": r.Columns,
@@ -151,8 +153,8 @@ func (w *WASMSQLEngine) formatResultForWASM(result interface{}) interface{} {
 		}
 	default:
 		return map[string]interface{}{
-			"type":    "unknown",
-			"result":  fmt.Sprintf("%v", result),
+			"type":   "unknown",
+			"result": fmt.Sprintf("%v", result),
 		}
 	}
 }
@@ -162,7 +164,7 @@ func convertToJSValue(val interface{}) interface{} {
 	if val == nil {
 		return nil
 	}
-	
+
 	switch v := val.(type) {
 	case string, bool, int, int8, int16, int32, int64:
 		return v
@@ -207,7 +209,7 @@ func (w *WASMSQLEngine) GetRecordedQueries() []string {
 	return w.engine.GetRecordedQueries()
 }
 
-// ClearRecordedQueries clears recorded queries  
+// ClearRecordedQueries clears recorded queries
 func (w *WASMSQLEngine) ClearRecordedQueries() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -215,8 +217,76 @@ func (w *WASMSQLEngine) ClearRecordedQueries() {
 	// Queries are cleared when StartRecording is called again
 }
 
+// GetSnapshot returns the current database state as a byte slice
+func (w *WASMSQLEngine) GetSnapshot() ([]byte, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	var buf bytes.Buffer
+	if err := w.engine.SaveSnapshotToWriter(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// LoadSnapshot restores the database state from a byte slice
+func (w *WASMSQLEngine) LoadSnapshot(data []byte) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	reader := bytes.NewReader(data)
+	return w.engine.LoadSnapshotFromReader(reader)
+}
+
 // Global engine instance
 var globalEngine *WASMSQLEngine
+
+// WASM exported functions
+func getSnapshot(this js.Value, p []js.Value) interface{} {
+	data, err := globalEngine.GetSnapshot()
+	if err != nil {
+		errorResult := map[string]interface{}{
+			"error": err.Error(),
+		}
+		jsonBytes, _ := json.Marshal(errorResult)
+		return string(jsonBytes)
+	}
+
+	// Create a Javascript Uint8Array from the Go byte slice
+	uint8Array := js.Global().Get("Uint8Array").New(len(data))
+	js.CopyBytesToJS(uint8Array, data)
+	return uint8Array
+}
+
+func loadSnapshot(this js.Value, p []js.Value) interface{} {
+	if len(p) < 1 {
+		errorResult := map[string]interface{}{
+			"error": "Missing snapshot data",
+		}
+		jsonBytes, _ := json.Marshal(errorResult)
+		return string(jsonBytes)
+	}
+
+	// The input should be a Uint8Array
+	jsData := p[0]
+	data := make([]byte, jsData.Get("length").Int())
+	js.CopyBytesToGo(data, jsData)
+
+	err := globalEngine.LoadSnapshot(data)
+	if err != nil {
+		errorResult := map[string]interface{}{
+			"error": err.Error(),
+		}
+		jsonBytes, _ := json.Marshal(errorResult)
+		return string(jsonBytes)
+	}
+
+	result := map[string]interface{}{
+		"message": "Snapshot loaded successfully",
+	}
+	jsonBytes, _ := json.Marshal(result)
+	return string(jsonBytes)
+}
 
 // WASM exported functions
 func executeSQL(this js.Value, p []js.Value) interface{} {
@@ -230,7 +300,7 @@ func executeSQL(this js.Value, p []js.Value) interface{} {
 
 	query := p[0].String()
 	jsonResult, _ := globalEngine.Execute(query)
-	
+
 	return jsonResult
 }
 
@@ -280,6 +350,8 @@ func main() {
 	js.Global().Set("stopRecording", js.FuncOf(stopRecording))
 	js.Global().Set("getRecordedQueries", js.FuncOf(getRecordedQueries))
 	js.Global().Set("clearRecordedQueries", js.FuncOf(clearRecordedQueries))
+	js.Global().Set("getSnapshot", js.FuncOf(getSnapshot))
+	js.Global().Set("loadSnapshot", js.FuncOf(loadSnapshot))
 
 	// Keep the program running
 	select {}

@@ -1,3 +1,4 @@
+//go:build !js && !wasm
 // +build !js,!wasm
 
 package mist
@@ -27,12 +28,17 @@ type SimpleMistServer struct {
 
 // NewSimpleMistServer creates a new simple MySQL-compatible daemon server
 func NewSimpleMistServer(port int) *SimpleMistServer {
+	return NewSimpleMistServerWithOptions(port, PersistenceOptions{Enabled: false})
+}
+
+// NewSimpleMistServerWithOptions creates a new simple MySQL-compatible daemon server with persistence options
+func NewSimpleMistServerWithOptions(port int, options PersistenceOptions) *SimpleMistServer {
 	if port == 0 {
 		port = 3306 // Default MySQL port
 	}
 
-	engine := NewSQLEngine()
-	
+	engine := NewSQLEngineWithOptions(options)
+
 	return &SimpleMistServer{
 		engine: engine,
 		port:   port,
@@ -86,7 +92,7 @@ func (s *SimpleMistServer) Start() error {
 // handleConnection handles a client connection with simple text protocol
 func (s *SimpleMistServer) handleConnection(conn net.Conn, connID int) {
 	defer conn.Close()
-	
+
 	// Send welcome message
 	welcome := fmt.Sprintf("Welcome to Mist MySQL-compatible database (Connection #%d)\n", connID)
 	welcome += "Type 'help' for commands, 'quit' to exit\n"
@@ -98,7 +104,7 @@ func (s *SimpleMistServer) handleConnection(conn net.Conn, connID int) {
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		if line == "" {
 			conn.Write([]byte("mist> "))
 			continue
@@ -326,7 +332,12 @@ func (s *SimpleMistServer) GetEngine() *SQLEngine {
 
 // RunSimpleDaemon starts the simple Mist daemon and handles graceful shutdown
 func RunSimpleDaemon(port int) error {
-	server := NewSimpleMistServer(port)
+	return RunSimpleDaemonWithOptions(port, PersistenceOptions{Enabled: false})
+}
+
+// RunSimpleDaemonWithOptions starts the simple Mist daemon with persistence options
+func RunSimpleDaemonWithOptions(port int, options PersistenceOptions) error {
+	server := NewSimpleMistServerWithOptions(port, options)
 
 	// Start the server
 	if err := server.Start(); err != nil {

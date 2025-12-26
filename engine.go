@@ -2,14 +2,24 @@ package mist
 
 import (
 	"bufio"
+	"encoding/gob"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/abbychau/mysql-parser/ast"
 )
+
+// PersistenceOptions holds configuration for database persistence
+type PersistenceOptions struct {
+	Enabled      bool
+	AofPath      string
+	SnapshotPath string
+	SyncInterval string // "always", "everysec", "none" (default: "always")
+}
 
 // TransactionData holds the state of an active transaction
 type TransactionData struct {
@@ -51,18 +61,79 @@ type SQLEngine struct {
 	transactionData  *TransactionData
 	transactionLevel int // Current nesting level (0 = no transaction)
 	transactionMutex sync.RWMutex
+	// Persistence support
+	persistenceOptions PersistenceOptions
+	aofFile            *os.File
+	aofMutex           sync.Mutex
 }
 
 // NewSQLEngine creates a new SQL engine with an empty database
 func NewSQLEngine() *SQLEngine {
-	return &SQLEngine{
-		database:         NewDatabase(),
-		recording:        false,
-		recordedQueries:  make([]string, 0),
-		inTransaction:    false,
-		transactionData:  nil,
-		transactionLevel: 0,
+	return NewSQLEngineWithOptions(PersistenceOptions{Enabled: false})
+}
+
+// NewSQLEngineWithOptions creates a new SQL engine with the given persistence options
+func NewSQLEngineWithOptions(options PersistenceOptions) *SQLEngine {
+	engine := &SQLEngine{
+		database:           NewDatabase(),
+		recording:          false,
+		recordedQueries:    make([]string, 0),
+		inTransaction:      false,
+		transactionData:    nil,
+		transactionLevel:   0,
+		persistenceOptions: options,
 	}
+
+	if options.Enabled {
+		if options.SnapshotPath != "" {
+			err := engine.LoadSnapshot()
+			if err != nil {
+				log.Printf("Warning: Failed to load snapshot: %v", err)
+			}
+		}
+		if options.AofPath != "" {
+			err := engine.initAof()
+			if err != nil {
+				log.Printf("Warning: Failed to initialize AOF: %v", err)
+			}
+		}
+	}
+
+	return engine
+}
+
+// initAof initializes the append-only file and recovers data if it exists
+func (engine *SQLEngine) initAof() error {
+	engine.aofMutex.Lock()
+	defer engine.aofMutex.Unlock()
+
+	// Load existing AOF if it exists
+	if _, err := os.Stat(engine.persistenceOptions.AofPath); err == nil {
+		err := engine.loadAofInternal()
+		if err != nil {
+			return fmt.Errorf("failed to load AOF: %v", err)
+		}
+	}
+
+	// Open file for appending
+	file, err := os.OpenFile(engine.persistenceOptions.AofPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open AOF file: %v", err)
+	}
+	engine.aofFile = file
+
+	return nil
+}
+
+// Close closes the engine and any open resources (like AOF)
+func (engine *SQLEngine) Close() error {
+	engine.aofMutex.Lock()
+	defer engine.aofMutex.Unlock()
+
+	if engine.aofFile != nil {
+		return engine.aofFile.Close()
+	}
+	return nil
 }
 
 // Execute executes a SQL statement and returns the result
@@ -78,12 +149,54 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 		engine.recordingMutex.RUnlock()
 	}
 
+	return engine.executeInternal(sql, true)
+}
+
+// executeInternal executes a SQL statement with optional AOF logging
+func (engine *SQLEngine) executeInternal(sql string, logToAof bool) (interface{}, error) {
 	// Trim whitespace and ensure statement ends with semicolon for parsing
 	sql = strings.TrimSpace(sql)
 	if !strings.HasSuffix(sql, ";") {
 		sql += ";"
 	}
 
+	// Parse the SQL statement
+	astNode, err := parse(sql)
+	if err != nil {
+		return nil, fmt.Errorf("parse error: %v", err)
+	}
+
+	result, err := engine.routeStatement(sql, astNode)
+
+	if err == nil && logToAof && engine.persistenceOptions.Enabled && engine.isMutating(sql, astNode) {
+		engine.writeToAof(sql)
+	}
+
+	return result, err
+}
+
+// isMutating checks if a statement or SQL string is a mutating operation
+func (engine *SQLEngine) isMutating(sql string, astNode *ast.StmtNode) bool {
+	if isCreateIndexStatement(sql) || isDropIndexStatement(sql) {
+		return true
+	}
+
+	if astNode == nil {
+		return false
+	}
+
+	switch (*astNode).(type) {
+	case *ast.CreateTableStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt,
+		*ast.AlterTableStmt, *ast.CreateIndexStmt, *ast.DropIndexStmt,
+		*ast.BeginStmt, *ast.CommitStmt, *ast.RollbackStmt, *ast.SavepointStmt,
+		*ast.ReleaseSavepointStmt, *ast.DropTableStmt, *ast.TruncateTableStmt:
+		return true
+	}
+	return false
+}
+
+// routeStatement routes to appropriate handler based on statement type
+func (engine *SQLEngine) routeStatement(sql string, astNode *ast.StmtNode) (interface{}, error) {
 	// Handle special cases that might not parse well with TiDB parser
 	if isCreateIndexStatement(sql) {
 		err := parseCreateIndexSQL(engine.database, sql)
@@ -109,13 +222,10 @@ func (engine *SQLEngine) Execute(sql string) (interface{}, error) {
 		return result, nil
 	}
 
-	// Parse the SQL statement
-	astNode, err := parse(sql)
-	if err != nil {
-		return nil, fmt.Errorf("parse error: %v", err)
+	if astNode == nil {
+		return nil, fmt.Errorf("invalid statement")
 	}
 
-	// Route to appropriate handler based on statement type
 	switch stmt := (*astNode).(type) {
 	case *ast.CreateTableStmt:
 		err := ExecuteCreateTable(engine.database, stmt)
@@ -677,49 +787,45 @@ func (engine *SQLEngine) rollbackToSavepoint(savepointName string) (interface{},
 	return nil, fmt.Errorf("savepoint %s does not exist", savepointName)
 }
 
-
 // executeSetStatement handles SET statements (parse-only for isolation levels)
 func (engine *SQLEngine) executeSetStatement(stmt *ast.SetStmt) (interface{}, error) {
 	// Parse and acknowledge SET statements without actually implementing them
 	// This is useful for compatibility with MySQL scripts that set isolation levels
-	
+
 	for _, variable := range stmt.Variables {
-		if variable.Name == "transaction_isolation" || 
-		   variable.Name == "tx_isolation" ||
-		   (variable.IsSystem && variable.Name == "transaction_isolation") {
+		if variable.Name == "transaction_isolation" ||
+			variable.Name == "tx_isolation" ||
+			(variable.IsSystem && variable.Name == "transaction_isolation") {
 			// Isolation level setting
 			if variable.Value != nil {
-				return "Transaction isolation level acknowledged (not enforced)", nil
+				// We could log this, but for now we just acknowledge it
 			}
 		}
-		
+
 		// Handle global settings
 		if variable.IsGlobal {
-			return fmt.Sprintf("Global variable %s acknowledged (not enforced)", variable.Name), nil
+			// Acknowledge
 		}
-		
+
 		// Handle system variables
 		if variable.IsSystem {
-			return fmt.Sprintf("System variable %s acknowledged (not enforced)", variable.Name), nil
+			// Acknowledge
 		}
-		
-		// Handle other SET statements (session variables by default)
-		return fmt.Sprintf("Session variable %s acknowledged (not enforced)", variable.Name), nil
 	}
-	
-	return "SET statement acknowledged", nil
+
+	return "SET statement acknowledged (not enforced)", nil
 }
 
 // executeLockTables handles LOCK TABLES statements (parse-only)
 func (engine *SQLEngine) executeLockTables(stmt *ast.LockTablesStmt) (interface{}, error) {
 	// Parse and acknowledge LOCK TABLES without actually implementing locking
 	// This is useful for compatibility with MySQL scripts that use table locking
-	
+
 	tableCount := len(stmt.TableLocks)
 	if tableCount == 0 {
 		return "LOCK TABLES acknowledged (no tables specified)", nil
 	}
-	
+
 	// Since this is parse-only, we'll acknowledge even if tables don't exist
 	// This improves compatibility with migration scripts where tables might be created later
 	var tableNames []string
@@ -727,7 +833,7 @@ func (engine *SQLEngine) executeLockTables(stmt *ast.LockTablesStmt) (interface{
 		tableName := tableLock.Table.Name.String()
 		tableNames = append(tableNames, tableName)
 	}
-	
+
 	return fmt.Sprintf("LOCK TABLES acknowledged for %d table(s) (not enforced)", tableCount), nil
 }
 
@@ -735,6 +841,240 @@ func (engine *SQLEngine) executeLockTables(stmt *ast.LockTablesStmt) (interface{
 func (engine *SQLEngine) executeUnlockTables(stmt *ast.UnlockTablesStmt) (interface{}, error) {
 	// Parse and acknowledge UNLOCK TABLES without actually implementing unlocking
 	// This is useful for compatibility with MySQL scripts that use table locking
-	
+
 	return "UNLOCK TABLES acknowledged (not enforced)", nil
+}
+
+// writeToAof writes a SQL statement to the append-only file
+func (engine *SQLEngine) writeToAof(sql string) {
+	engine.aofMutex.Lock()
+	defer engine.aofMutex.Unlock()
+
+	if engine.aofFile == nil {
+		return
+	}
+
+	// Ensure SQL ends with a single newline
+	sql = strings.TrimSpace(sql)
+	if !strings.HasSuffix(sql, ";") {
+		sql += ";"
+	}
+	_, err := engine.aofFile.WriteString(sql + "\n")
+	if err != nil {
+		log.Printf("Error writing to AOF: %v", err)
+		return
+	}
+
+	// Sync based on interval
+	if engine.persistenceOptions.SyncInterval == "always" || engine.persistenceOptions.SyncInterval == "" {
+		engine.aofFile.Sync()
+	}
+}
+
+// LoadAof replays the append-only file to restore the database state
+func (engine *SQLEngine) LoadAof() error {
+	return engine.loadAofInternal()
+}
+
+func (engine *SQLEngine) loadAofInternal() error {
+	if engine.persistenceOptions.AofPath == "" {
+		return nil
+	}
+
+	file, err := os.Open(engine.persistenceOptions.AofPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		sql := strings.TrimSpace(scanner.Text())
+		if sql == "" || strings.HasPrefix(sql, "--") || strings.HasPrefix(sql, "#") {
+			continue
+		}
+		_, err := engine.executeInternal(sql, false) // Don't log to AOF while loading
+		if err != nil {
+			log.Printf("Warning: Failed to replay AOF statement (%s): %v", sql, err)
+		}
+	}
+
+	return scanner.Err()
+}
+
+// SnapshotTable represents a table in a snapshot
+type SnapshotTable struct {
+	Name            string
+	Columns         []Column
+	Rows            []Row
+	AutoIncrCounter int64
+}
+
+// SnapshotIndex represents an index in a snapshot
+type SnapshotIndex struct {
+	Name        string
+	TableName   string
+	ColumnNames []string
+	Type        IndexType
+}
+
+// Snapshot represents a full database snapshot
+type Snapshot struct {
+	Tables  []SnapshotTable
+	Indexes []SnapshotIndex
+}
+
+// SaveSnapshotToWriter saves the current database state to an io.Writer
+func (engine *SQLEngine) SaveSnapshotToWriter(w io.Writer) error {
+	engine.database.mutex.RLock()
+	defer engine.database.mutex.RUnlock()
+
+	snapshot := Snapshot{
+		Tables:  make([]SnapshotTable, 0, len(engine.database.Tables)),
+		Indexes: make([]SnapshotIndex, 0),
+	}
+
+	for _, table := range engine.database.Tables {
+		table.mutex.RLock()
+		snapshot.Tables = append(snapshot.Tables, SnapshotTable{
+			Name:            table.Name,
+			Columns:         table.Columns,
+			Rows:            table.Rows,
+			AutoIncrCounter: table.AutoIncrCounter,
+		})
+		table.mutex.RUnlock()
+	}
+
+	engine.database.IndexManager.mutex.RLock()
+	for _, index := range engine.database.IndexManager.Indexes {
+		snapshot.Indexes = append(snapshot.Indexes, SnapshotIndex{
+			Name:        index.Name,
+			TableName:   index.TableName,
+			ColumnNames: index.ColumnNames,
+			Type:        index.Type,
+		})
+	}
+	engine.database.IndexManager.mutex.RUnlock()
+
+	encoder := gob.NewEncoder(w)
+	return encoder.Encode(snapshot)
+}
+
+// SaveSnapshot saves the current database state to a snapshot file
+func (engine *SQLEngine) SaveSnapshot() error {
+	if engine.persistenceOptions.SnapshotPath == "" {
+		return fmt.Errorf("snapshot path not configured")
+	}
+
+	// Atomic save: write to temp file then rename
+	tempPath := engine.persistenceOptions.SnapshotPath + ".tmp"
+	file, err := os.Create(tempPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if err := engine.SaveSnapshotToWriter(file); err != nil {
+		return err
+	}
+	file.Close()
+
+	if err := os.Rename(tempPath, engine.persistenceOptions.SnapshotPath); err != nil {
+		return err
+	}
+
+	// Truncate AOF after successful snapshot
+	if engine.persistenceOptions.AofPath != "" {
+		engine.aofMutex.Lock()
+		defer engine.aofMutex.Unlock()
+		if engine.aofFile != nil {
+			engine.aofFile.Close()
+		}
+		if err := os.Truncate(engine.persistenceOptions.AofPath, 0); err != nil {
+			log.Printf("Warning: Failed to truncate AOF after snapshot: %v", err)
+		}
+		// Reopen AOF
+		file, err := os.OpenFile(engine.persistenceOptions.AofPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Printf("Warning: Failed to reopen AOF after snapshot: %v", err)
+		} else {
+			engine.aofFile = file
+		}
+	}
+
+	return nil
+}
+
+// LoadSnapshotFromReader loads the database state from an io.Reader
+func (engine *SQLEngine) LoadSnapshotFromReader(r io.Reader) error {
+	var snapshot Snapshot
+	decoder := gob.NewDecoder(r)
+	if err := decoder.Decode(&snapshot); err != nil {
+		return err
+	}
+
+	engine.database.mutex.Lock()
+	defer engine.database.mutex.Unlock()
+
+	// Clear existing data
+	engine.database.Tables = make(map[string]*Table)
+	engine.database.IndexManager = NewIndexManager()
+
+	// Restore tables
+	for _, st := range snapshot.Tables {
+		table := NewTable(st.Name, st.Columns)
+		table.Rows = st.Rows
+		table.AutoIncrCounter = st.AutoIncrCounter
+
+		// Rebuild unique indexes
+		for _, row := range table.Rows {
+			for colIdx, val := range row.Values {
+				col := table.Columns[colIdx]
+				if (col.Unique || col.Primary) && val != nil {
+					if table.UniqueIndexes[col.Name] == nil {
+						table.UniqueIndexes[col.Name] = make(map[interface{}]bool)
+					}
+					table.UniqueIndexes[col.Name][val] = true
+				}
+			}
+			// Rebuild functional indexes will happen in the index loop
+		}
+		engine.database.Tables[strings.ToLower(st.Name)] = table
+	}
+
+	// Restore indexes
+	for _, si := range snapshot.Indexes {
+		table, ok := engine.database.Tables[strings.ToLower(si.TableName)]
+		if !ok {
+			log.Printf("Warning: Table %s for index %s not found in snapshot", si.TableName, si.Name)
+			continue
+		}
+		err := engine.database.IndexManager.CreateCompositeIndex(si.Name, si.TableName, si.ColumnNames, si.Type, table)
+		if err != nil {
+			log.Printf("Warning: Failed to rebuild index %s: %v", si.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// LoadSnapshot loads the database state from a snapshot file
+func (engine *SQLEngine) LoadSnapshot() error {
+	if engine.persistenceOptions.SnapshotPath == "" {
+		return nil
+	}
+
+	file, err := os.Open(engine.persistenceOptions.SnapshotPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	return engine.LoadSnapshotFromReader(file)
 }

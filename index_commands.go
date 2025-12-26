@@ -30,12 +30,12 @@ func ExecuteCreateIndex(db *Database, stmt *ast.CreateIndexStmt) error {
 
 	// Determine index type based on statement properties
 	var indexType IndexType
-	
+
 	// Use TiDB parser constants for proper detection
 	// TODO: Check if IndexKeyTypeFullText exists in new parser
 	// if stmt.KeyType == ast.IndexKeyTypeFullText { // FULLTEXT index
 	//	indexType = FullTextIndex // Full-text parsed-only index
-	// } else 
+	// } else
 	if len(columnNames) == 1 {
 		indexType = HashIndex // Single-column functional index
 	} else {
@@ -70,7 +70,7 @@ func ExecuteShowIndexes(db *Database, tableName string) (*SelectResult, error) {
 		if index.IsParsedOnly {
 			functional = "No (Parsed Only)"
 		}
-		
+
 		result.Rows[i] = []interface{}{
 			index.Name,
 			index.TableName,
@@ -88,23 +88,23 @@ func parseCreateIndexSQL(db *Database, sql string) error {
 	// Enhanced parsing for CREATE [FULLTEXT] INDEX index_name ON table_name (column1, column2, ...)
 	sql = strings.TrimSuffix(strings.TrimSpace(sql), ";")
 	upperSQL := strings.ToUpper(sql)
-	
+
 	// Check for FULLTEXT index
 	isFullText := strings.Contains(upperSQL, "FULLTEXT")
-	
+
 	// Simple state machine for parsing
 	var indexName, tableName string
 	var columnNames []string
-	
+
 	// Split into tokens
 	tokens := strings.Fields(sql)
 	upperTokens := strings.Fields(upperSQL)
-	
+
 	// Find positions of key tokens
 	createPos := -1
 	indexPos := -1
 	onPos := -1
-	
+
 	for i, token := range upperTokens {
 		switch token {
 		case "CREATE":
@@ -115,37 +115,37 @@ func parseCreateIndexSQL(db *Database, sql string) error {
 			onPos = i
 		}
 	}
-	
+
 	if createPos == -1 || indexPos == -1 || onPos == -1 {
 		return fmt.Errorf("invalid CREATE INDEX syntax")
 	}
-	
+
 	// Extract index name (between INDEX and ON)
 	if onPos <= indexPos+1 {
 		return fmt.Errorf("missing index name")
 	}
 	indexName = tokens[indexPos+1]
-	
+
 	// Extract table name and column part (after ON)
 	if len(tokens) <= onPos+1 {
 		return fmt.Errorf("missing table name")
 	}
-	
+
 	tableAndColumns := strings.Join(tokens[onPos+1:], " ")
-	
+
 	// Check if table name and columns are combined (e.g., "users(age)")
 	parenPos := strings.Index(tableAndColumns, "(")
 	if parenPos == -1 {
 		return fmt.Errorf("invalid CREATE INDEX syntax: columns must be in parentheses")
 	}
-	
-	tableName = tableAndColumns[:parenPos]
+
+	tableName = strings.TrimSpace(tableAndColumns[:parenPos])
 	columnPart := tableAndColumns[parenPos:]
-	
+
 	if !strings.HasPrefix(columnPart, "(") || !strings.HasSuffix(columnPart, ")") {
 		return fmt.Errorf("invalid CREATE INDEX syntax: columns must be in parentheses")
 	}
-	
+
 	// Parse column names (comma-separated inside parentheses)
 	columnsStr := strings.Trim(columnPart, "()")
 	for _, col := range strings.Split(columnsStr, ",") {
@@ -154,7 +154,7 @@ func parseCreateIndexSQL(db *Database, sql string) error {
 			columnNames = append(columnNames, columnName)
 		}
 	}
-	
+
 	if len(columnNames) == 0 {
 		return fmt.Errorf("index must specify at least one column")
 	}
@@ -200,9 +200,9 @@ func parseDropIndexSQL(db *Database, sql string) error {
 // isCreateIndexStatement checks if a SQL statement is CREATE INDEX
 func isCreateIndexStatement(sql string) bool {
 	trimmed := strings.TrimSpace(strings.ToUpper(sql))
-	return strings.HasPrefix(trimmed, "CREATE INDEX") || 
-		   strings.HasPrefix(trimmed, "CREATE UNIQUE INDEX") ||
-		   strings.HasPrefix(trimmed, "CREATE FULLTEXT INDEX")
+	return strings.HasPrefix(trimmed, "CREATE INDEX") ||
+		strings.HasPrefix(trimmed, "CREATE UNIQUE INDEX") ||
+		strings.HasPrefix(trimmed, "CREATE FULLTEXT INDEX")
 }
 
 // isDropIndexStatement checks if a SQL statement is DROP INDEX
